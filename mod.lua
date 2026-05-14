@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 1 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 2, 3 и т.д.
+local SCRIPT_VERSION = 2 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 2, 3 и т.д.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -46,7 +46,7 @@ local newFrame = imgui.OnFrame(function() return renderMenu[0] end, function(pla
     imgui.SetNextWindowSize(imgui.ImVec2(450, 250), imgui.Cond.FirstUseEver)
     imgui.SetNextWindowPos(imgui.ImVec2(500, 300), imgui.Cond.FirstUseEver)
     
-    if imgui.Begin(u8"Средние цены на рынке || Имитатор", renderMenu, imgui.WindowFlags.NoCollapse) then
+    if imgui.Begin(u8"Средние цены на рынке", renderMenu, imgui.WindowFlags.NoCollapse) then
         imgui.Text(u8"Ваши ресурсы из инвентаря:")
         imgui.Separator()
         imgui.Spacing()
