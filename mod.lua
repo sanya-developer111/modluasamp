@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 2 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 3, 4 и т.д.
+local SCRIPT_VERSION = 3 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 3, 4 и т.д.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -116,7 +116,7 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
     end
 end
 
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ДЛЯ GITHUB ] ============================
+-- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ (ИСПРАВЛЕНИЕ КОДИРОВКИ) ] ============================
 function checkUpdate()
     if update_checking then return end
     update_checking = true
@@ -135,18 +135,18 @@ function checkUpdate()
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Найдено обновление! Установка версии " .. remote_ver .. "...", -1)
                         
-                        -- Декодируем UTF-8 с GitHub в CP1251 для SAMP
+                        -- САМОЕ ВАЖНОЕ: Переводим текст с GitHub (UTF-8) в Кириллицу (CP1251)
                         local decoded_content = u8:decode(content)
                         
-                        -- Перезаписываем текущий файл скрипта правильной кодировкой
+                        -- Открываем НАШ основной скрипт и перезаписываем его текстом с правильной кодировкой
                         local main_script_path = thisScript().path
-                        local new_file = io.open(main_script_path, "w")
-                        if new_file then
-                            new_file:write(decoded_content)
-                            new_file:close()
+                        local script_file = io.open(main_script_path, "w")
+                        if script_file then
+                            script_file:write(decoded_content)
+                            script_file:close()
                         end
                         
-                        -- Удаляем временный файл
+                        -- Удаляем временный файл скачанный с гитхаба
                         os.remove(temp_path)
                         
                         sampAddChatMessage("{8B0000}[ModHelper] {00FF00}Обновление успешно установлено! Перезагрузка скрипта...", -1)
