@@ -11,7 +11,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ================= НАСТРОЙКИ ОБНОВЛЕНИЯ =================
-local CURRENT_VERSION = "1.2"
+local CURRENT_VERSION = "1.2" -- Меняй при релизе
 local UPDATE_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/version.txt"
 local UPDATE_SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 -- =======================================================
@@ -73,7 +73,7 @@ function sampev.onSendCommand(cmd)
     end
 end
 
--- ================= СИСТЕМА ОБНОВЛЕНИЙ =================
+-- ================= СИСТЕМА ОБНОВЛЕНИЙ (С ТАЙМАУТОМ) =================
 function checkUpdate()
     if updateBusy then
         sampAddChatMessage("{800000}[Мод]{FFFFFF} Обновление уже выполняется...", -1)
@@ -85,8 +85,27 @@ function checkUpdate()
     local path_to_script = thisScript().path
     local tmp_version = path_to_script .. ".ver.tmp"
     
+    -- Таймаут 10 секунд (автоматический сброс, если зависнет)
+    local timeoutTimer
+    timeoutTimer = setTimer(function()
+        if updateBusy then
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Превышено время ожидания (10 сек). Проверьте сетевое соединение.", -1)
+            updateBusy = false
+            os.remove(tmp_version)
+            timeoutTimer = nil
+        end
+    end, 10000, 1)
+    
     downloadUrlToFile(UPDATE_URL, tmp_version, function(id, status)
-        -- Числовые константы вместо dlstatus
+        -- Сбрасываем таймер
+        if timeoutTimer then
+            clearTimer(timeoutTimer)
+            timeoutTimer = nil
+        end
+        
+        -- Отладка: показываем статус
+        sampAddChatMessage("{800000}[Мод]{FFFFFF} Статус загрузки: " .. tostring(status), -1)
+        
         if status == 2 then -- STATUS_ENDDOWNLOADDATA = 2
             local f = io.open(tmp_version, "r")
             if f then
@@ -94,8 +113,10 @@ function checkUpdate()
                 f:close()
                 os.remove(tmp_version)
                 
+                sampAddChatMessage("{800000}[Мод]{FFFFFF} Удаленная версия: " .. tostring(remote_version), -1)
+                
                 if remote_version and remote_version ~= CURRENT_VERSION then
-                    sampAddChatMessage(string.format("{800000}[Мод]{FFFFFF} Найдена версия %s (ваша: %s). Скачиваю...", remote_version, CURRENT_VERSION), -1)
+                    sampAddChatMessage(string.format("{800000}[Мод]{FFFFFF} Найдена новая версия: %s (ваша: %s). Скачиваю...", remote_version, CURRENT_VERSION), -1)
                     downloadUpdate(path_to_script)
                 else
                     sampAddChatMessage("{800000}[Мод]{FFFFFF} У вас установлена последняя версия.", -1)
@@ -106,7 +127,10 @@ function checkUpdate()
                 updateBusy = false
             end
         elseif status == 1 then -- STATUS_ERROR = 1
-            sampAddChatMessage("{800000}[Мод]{FFFFFF} Не удалось проверить версию. Проверьте интернет.", -1)
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка сети. Проверьте интернет и URL.", -1)
+            updateBusy = false
+        else
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Неизвестный статус: " .. tostring(status), -1)
             updateBusy = false
         end
     end)
@@ -115,7 +139,23 @@ end
 function downloadUpdate(script_path)
     local tmp_script = script_path .. ".new.lua"
     
+    -- Таймаут 30 секунд для скачивания скрипта
+    local timeoutTimer
+    timeoutTimer = setTimer(function()
+        if updateBusy then
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Превышено время скачивания (30 сек).", -1)
+            updateBusy = false
+            os.remove(tmp_script)
+            timeoutTimer = nil
+        end
+    end, 30000, 1)
+    
     downloadUrlToFile(UPDATE_SCRIPT_URL, tmp_script, function(id, status)
+        if timeoutTimer then
+            clearTimer(timeoutTimer)
+            timeoutTimer = nil
+        end
+        
         if status == 2 then -- STATUS_ENDDOWNLOADDATA
             os.remove(script_path .. ".old")
             os.rename(script_path, script_path .. ".old")
@@ -127,7 +167,10 @@ function downloadUpdate(script_path)
             
         elseif status == 1 then -- STATUS_ERROR
             os.remove(tmp_script)
-            sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка скачивания обновления.", -1)
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка скачивания файла.", -1)
+            updateBusy = false
+        else
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Неизвестный статус при скачивании: " .. tostring(status), -1)
             updateBusy = false
         end
     end)
