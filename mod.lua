@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 3 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 3, 4 и т.д.
+local SCRIPT_VERSION = 4 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 4, 5 и т.д.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -105,18 +105,18 @@ end
 
 -- Перехватываем диалог после команды
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
-    if waitingForReport and (style == 1 or style == 3) then -- Проверяем что это диалог с полем ввода
+    if waitingForReport and (style == 1 or style == 3) then
         waitingForReport = false
         lua_thread.create(function()
-            wait(100) -- Небольшая задержка для прогрузки диалога
+            wait(100)
             sampSetCurrentDialogEditboxText(u8:decode("Всем привет!"))
             wait(50)
-            sampCloseCurrentDialogWithButton(1) -- Нажимает Enter (Кнопку 1)
+            sampCloseCurrentDialogWithButton(1)
         end)
     end
 end
 
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ (ИСПРАВЛЕНИЕ КОДИРОВКИ) ] ============================
+-- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ (БИНАРНЫЙ РЕЖИМ) ] ============================
 function checkUpdate()
     if update_checking then return end
     update_checking = true
@@ -124,7 +124,8 @@ function checkUpdate()
 
     downloadUrlToFile(SCRIPT_URL, temp_path, function(id, status, p1, p2)
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-            local file = io.open(temp_path, "r")
+            -- Читаем во временном бинарном режиме ("rb")
+            local file = io.open(temp_path, "rb")
             if file then
                 local content = file:read("*a")
                 file:close()
@@ -135,18 +136,17 @@ function checkUpdate()
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Найдено обновление! Установка версии " .. remote_ver .. "...", -1)
                         
-                        -- САМОЕ ВАЖНОЕ: Переводим текст с GitHub (UTF-8) в Кириллицу (CP1251)
+                        -- Декодируем из UTF-8 в CP1251
                         local decoded_content = u8:decode(content)
                         
-                        -- Открываем НАШ основной скрипт и перезаписываем его текстом с правильной кодировкой
+                        -- Записываем в основной файл строго в бинарном режиме ("wb")
                         local main_script_path = thisScript().path
-                        local script_file = io.open(main_script_path, "w")
+                        local script_file = io.open(main_script_path, "wb")
                         if script_file then
                             script_file:write(decoded_content)
                             script_file:close()
                         end
                         
-                        -- Удаляем временный файл скачанный с гитхаба
                         os.remove(temp_path)
                         
                         sampAddChatMessage("{8B0000}[ModHelper] {00FF00}Обновление успешно установлено! Перезагрузка скрипта...", -1)
