@@ -6,13 +6,13 @@ require "lib.moonloader"
 local imgui = require 'mimgui'
 local encoding = require 'encoding'
 local sampev = require 'samp.events'
+local dlstatus = require('moonloader').dlstatus  -- ВОТ ЭТА СТРОКА ФИКСИТ КРАШ
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ================= НАСТРОЙКИ ОБНОВЛЕНИЯ =================
-local CURRENT_VERSION = "1.1" -- Текущая версия мода (меняй вручную при релизе)
--- Прямые RAW-ссылки (без редиректов github.com)
+local CURRENT_VERSION = "1.1"
 local UPDATE_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/version.txt"
 local UPDATE_SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 -- =======================================================
@@ -50,7 +50,7 @@ local newFrame = imgui.OnFrame(function() return show_menu[0] end, function(play
         imgui.Spacing()
         
         if imgui.BeginChild("ItemBox", imgui.ImVec2(0, 80), true) then
-            imgui.TextUnformatted(u8"Точильный камень")
+            imgui.TextUnformatted(u8"[💎] Точильный камень") -- Безопасный вариант
             imgui.SameLine(200)
             imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"средняя цена:")
             imgui.SameLine(310)
@@ -90,7 +90,7 @@ function checkUpdate()
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
             local f = io.open(tmp_version, "r")
             if f then
-                local remote_version = f:read("*a"):gsub("%s+", "") -- Убираем все пробелы и переносы
+                local remote_version = f:read("*a"):gsub("%s+", "") -- Убираем пробелы
                 f:close()
                 os.remove(tmp_version)
                 
@@ -117,7 +117,6 @@ function downloadUpdate(script_path)
     
     downloadUrlToFile(UPDATE_SCRIPT_URL, tmp_script, function(id, status)
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-            -- Бэкап на случай сбоя
             os.remove(script_path .. ".old")
             os.rename(script_path, script_path .. ".old")
             os.rename(tmp_script, script_path)
@@ -154,7 +153,7 @@ function main()
 
         if waiting_for_report and sampIsDialogActive() then
             wait(50)
-            sampSetCurrentDialogEditboxText(u8"Всем привет!") -- Исправлено: u8"..." вместо u8:decode()
+            sampSetCurrentDialogEditboxText(u8"Всем привет!")
             wait(100)
             sampCloseCurrentDialogWithButton(1)
             waiting_for_report = false
