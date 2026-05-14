@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ мюярпнийх намнбкемхи ] ============================
-local SCRIPT_VERSION = 2 -- опх намнбкемхх мю цхруюае лемъи щрн вхякн мю 2, 3 Х Р.Д.
+local SCRIPT_VERSION = 1 -- опх намнбкемхх мю цхруюае лемъи щрн вхякн мю 2, 3 Х Р.Д.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
