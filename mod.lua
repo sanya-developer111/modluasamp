@@ -105,18 +105,19 @@ end
 
 -- Перехватываем диалог после команды
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
-    if waitingForReport and (style == 1 or style == 3) then
+    if waitingForReport and (style == 1 or style == 3) then -- Проверяем что это диалог с полем ввода
         waitingForReport = false
         lua_thread.create(function()
-            wait(100)
-            sampSetCurrentDialogEditboxText(u8:decode("Всем привет!"))
+            wait(100) -- Небольшая задержка для прогрузки диалога
+            -- Отправляем чистый русский текст без декодеров
+            sampSetCurrentDialogEditboxText("Всем привет!")
             wait(50)
-            sampCloseCurrentDialogWithButton(1)
+            sampCloseCurrentDialogWithButton(1) -- Нажимает Enter (Кнопку 1)
         end)
     end
 end
 
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ (БИНАРНЫЙ РЕЖИМ) ] ============================
+-- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ] ============================
 function checkUpdate()
     if update_checking then return end
     update_checking = true
@@ -124,7 +125,6 @@ function checkUpdate()
 
     downloadUrlToFile(SCRIPT_URL, temp_path, function(id, status, p1, p2)
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-            -- Читаем во временном бинарном режиме ("rb")
             local file = io.open(temp_path, "rb")
             if file then
                 local content = file:read("*a")
@@ -136,10 +136,8 @@ function checkUpdate()
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Найдено обновление! Установка версии " .. remote_ver .. "...", -1)
                         
-                        -- Декодируем из UTF-8 в CP1251
                         local decoded_content = u8:decode(content)
                         
-                        -- Записываем в основной файл строго в бинарном режиме ("wb")
                         local main_script_path = thisScript().path
                         local script_file = io.open(main_script_path, "wb")
                         if script_file then
