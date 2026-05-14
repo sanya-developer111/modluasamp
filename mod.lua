@@ -12,8 +12,8 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 2 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 2, 3 и т.д.
-local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
+local SCRIPT_VERSION = 2 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 3, 4 и т.д.
+local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
 
@@ -116,7 +116,7 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
     end
 end
 
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ] ============================
+-- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ДЛЯ GITHUB ] ============================
 function checkUpdate()
     if update_checking then return end
     update_checking = true
@@ -135,9 +135,19 @@ function checkUpdate()
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Найдено обновление! Установка версии " .. remote_ver .. "...", -1)
                         
+                        -- Декодируем UTF-8 с GitHub в CP1251 для SAMP
+                        local decoded_content = u8:decode(content)
+                        
+                        -- Перезаписываем текущий файл скрипта правильной кодировкой
                         local main_script_path = thisScript().path
-                        os.remove(main_script_path)
-                        os.rename(temp_path, main_script_path)
+                        local new_file = io.open(main_script_path, "w")
+                        if new_file then
+                            new_file:write(decoded_content)
+                            new_file:close()
+                        end
+                        
+                        -- Удаляем временный файл
+                        os.remove(temp_path)
                         
                         sampAddChatMessage("{8B0000}[ModHelper] {00FF00}Обновление успешно установлено! Перезагрузка скрипта...", -1)
                         thisScript():reload()
