@@ -3,6 +3,7 @@ script_author("sanya-developer111")
 script_version("1.0")
 
 require "lib.moonloader"
+local dlstatus = require("moonloader").download_status
 local vkeys = require "vkeys"
 local imgui = require "mimgui"
 local sampev = require "lib.samp.events"
@@ -10,8 +11,8 @@ local encoding = require "encoding"
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
--- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 1 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО НА 2, 3 и т.д.
+-- ============================ [ РќРђРЎРўР РћР™РљР РћР‘РќРћР’Р›Р•РќРР™ ] ============================
+local SCRIPT_VERSION = 1 -- РџР Р РћР‘РќРћР’Р›Р•РќРР РќРђ Р“РРўРҐРђР‘Р• РњР•РќРЇР™ Р­РўРћ Р§РРЎР›Рћ РќРђ 2, 3 Рё С‚.Рґ.
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -19,7 +20,7 @@ local update_checking = false
 local renderMenu = imgui.new.bool(false)
 local waitingForReport = false
 
--- ============================ [ КРАСНО-ЧЕРНЫЙ СТИЛЬ IMGUI ] ============================
+-- ============================ [ РљР РђРЎРќРћ-Р§Р•Р РќР«Р™ РЎРўРР›Р¬ IMGUI ] ============================
 imgui.OnInitialize(function()
     local style = imgui.GetStyle()
     local colors = style.Colors
@@ -28,7 +29,7 @@ imgui.OnInitialize(function()
     style.FrameRounding = 6.0
     style.WindowTitleAlign = imgui.ImVec2(0.5, 0.5)
 
-    -- Черно-красная палитра
+    -- Р§РµСЂРЅРѕ-РєСЂР°СЃРЅР°СЏ РїР°Р»РёС‚СЂР°
     colors[imgui.Col.WindowBg]              = imgui.ImVec4(0.08, 0.08, 0.08, 0.95)
     colors[imgui.Col.TitleBg]               = imgui.ImVec4(0.40, 0.05, 0.05, 1.00)
     colors[imgui.Col.TitleBgActive]         = imgui.ImVec4(0.65, 0.09, 0.09, 1.00)
@@ -40,82 +41,82 @@ imgui.OnInitialize(function()
     colors[imgui.Col.Separator]             = imgui.ImVec4(0.50, 0.07, 0.07, 0.50)
 end)
 
--- Окно mimgui
+-- РћРєРЅРѕ mimgui
 local newFrame = imgui.OnFrame(function() return renderMenu[0] end, function(player)
     imgui.SetNextWindowSize(imgui.ImVec2(450, 250), imgui.Cond.FirstUseEver)
     imgui.SetNextWindowPos(imgui.ImVec2(500, 300), imgui.Cond.FirstUseEver)
     
-    if imgui.Begin(u8"Средние цены на рынке || Имитатор", renderMenu, imgui.WindowFlags.NoCollapse) then
-        imgui.Text(u8"Ваши ресурсы из инвентаря:")
+    if imgui.Begin(u8"РЎСЂРµРґРЅРёРµ С†РµРЅС‹ РЅР° СЂС‹РЅРєРµ || РРјРёС‚Р°С‚РѕСЂ", renderMenu, imgui.WindowFlags.NoCollapse) then
+        imgui.Text(u8"Р’Р°С€Рё СЂРµСЃСѓСЂСЃС‹ РёР· РёРЅРІРµРЅС‚Р°СЂСЏ:")
         imgui.Separator()
         imgui.Spacing()
         
-        -- Делаем красивое выделение текста
+        -- Р”РµР»Р°РµРј РєСЂР°СЃРёРІРѕРµ РІС‹РґРµР»РµРЅРёРµ С‚РµРєСЃС‚Р°
         imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.12, 0.12, 0.12, 1.00))
         if imgui.BeginChild("ItemsList", imgui.ImVec2(-1, 130), true) then
-            imgui.Text(u8"Точильный камень")
+            imgui.Text(u8"РўРѕС‡РёР»СЊРЅС‹Р№ РєР°РјРµРЅСЊ")
             imgui.SameLine(250)
-            imgui.TextColored(imgui.ImVec4(0.2, 0.9, 0.2, 1.0), u8"средняя цена: 50 000$")
+            imgui.TextColored(imgui.ImVec4(0.2, 0.9, 0.2, 1.0), u8"СЃСЂРµРґРЅСЏСЏ С†РµРЅР°: 50 000$")
             imgui.EndChild()
         end
         imgui.PopStyleColor()
 
         imgui.Spacing()
-        if imgui.Button(u8"Закрыть меню", imgui.ImVec2(-1, 35)) then
+        if imgui.Button(u8"Р—Р°РєСЂС‹С‚СЊ РјРµРЅСЋ", imgui.ImVec2(-1, 35)) then
             renderMenu[0] = false
         end
         imgui.End()
     end
 end)
 
--- ============================ [ ОСНОВНОЙ КОД ] ============================
+-- ============================ [ РћРЎРќРћР’РќРћР™ РљРћР” ] ============================
 function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
 
-    -- Проверка обновлений при входе
+    -- РџСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№ РїСЂРё РІС…РѕРґРµ
     checkUpdate()
 
-    sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Скрипт успешно загружен! Версия: " .. SCRIPT_VERSION, -1)
-    sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Открыть меню цен: {8B0000}F5{FFFFFF} | Проверить обновления: {8B0000}Ctrl + F5", -1)
+    sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}РЎРєСЂРёРїС‚ СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ! Р’РµСЂСЃРёСЏ: " .. SCRIPT_VERSION, -1)
+    sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}РћС‚РєСЂС‹С‚СЊ РјРµРЅСЋ С†РµРЅ: {8B0000}F5{FFFFFF} | РџСЂРѕРІРµСЂРёС‚СЊ РѕР±РЅРѕРІР»РµРЅРёСЏ: {8B0000}Ctrl + F5", -1)
 
     while true do
         wait(0)
-        -- Открытие меню на F5 (если не зажат Ctrl)
+        -- РћС‚РєСЂС‹С‚РёРµ РјРµРЅСЋ РЅР° F5 (РµСЃР»Рё РЅРµ Р·Р°Р¶Р°С‚ Ctrl)
         if isKeyJustPressed(vkeys.VK_F5) and not isKeyDown(vkeys.VK_CONTROL) and not sampIsChatInputActive() and not sampIsDialogActive() then
             renderMenu[0] = not renderMenu[0]
         end
 
-        -- Проверка обновлений на Ctrl + F5
+        -- РџСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№ РЅР° Ctrl + F5
         if isKeyDown(vkeys.VK_CONTROL) and isKeyJustPressed(vkeys.VK_F5) then
-            sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Ручная проверка обновлений...", -1)
+            sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Р СѓС‡РЅР°СЏ РїСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№...", -1)
             checkUpdate()
         end
     end
 end
 
--- ============================ [ ФУНКЦИОНАЛ /REP ] ============================
--- Отслеживаем команду /rep в чате
+-- ============================ [ Р¤РЈРќРљР¦РРћРќРђР› /REP ] ============================
+-- РћС‚СЃР»РµР¶РёРІР°РµРј РєРѕРјР°РЅРґСѓ /rep РІ С‡Р°С‚Рµ
 function sampev.onSendCommand(cmd)
     if cmd:lower():sub(1, 4) == "/rep" then
         waitingForReport = true
     end
 end
 
--- Перехватываем диалог после команды
+-- РџРµСЂРµС…РІР°С‚С‹РІР°РµРј РґРёР°Р»РѕРі РїРѕСЃР»Рµ РєРѕРјР°РЅРґС‹
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
-    if waitingForReport and (style == 1 or style == 3) then -- Проверяем что это диалог с полем ввода
+    if waitingForReport and (style == 1 or style == 3) then -- РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ СЌС‚Рѕ РґРёР°Р»РѕРі СЃ РїРѕР»РµРј РІРІРѕРґР°
         waitingForReport = false
         lua_thread.create(function()
-            wait(100) -- Небольшая задержка для прогрузки диалога
-            sampSetCurrentDialogEditboxText(u8:decode("Всем привет!"))
+            wait(100) -- РќРµР±РѕР»СЊС€Р°СЏ Р·Р°РґРµСЂР¶РєР° РґР»СЏ РїСЂРѕРіСЂСѓР·РєРё РґРёР°Р»РѕРіР°
+            sampSetCurrentDialogEditboxText(u8:decode("Р’СЃРµРј РїСЂРёРІРµС‚!"))
             wait(50)
-            sampCloseCurrentDialogWithButton(1) -- Нажимает Enter (Кнопку 1)
+            sampCloseCurrentDialogWithButton(1) -- РќР°Р¶РёРјР°РµС‚ Enter (РљРЅРѕРїРєСѓ 1)
         end)
     end
 end
 
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ] ============================
+-- ============================ [ РЎРРЎРўР•РњРђ РћР‘РќРћР’Р›Р•РќРР™ ] ============================
 function checkUpdate()
     if update_checking then return end
     update_checking = true
@@ -132,16 +133,16 @@ function checkUpdate()
                 if remote_ver then
                     remote_ver = tonumber(remote_ver)
                     if remote_ver > SCRIPT_VERSION then
-                        sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}Найдено обновление! Установка версии " .. remote_ver .. "...", -1)
+                        sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}РќР°Р№РґРµРЅРѕ РѕР±РЅРѕРІР»РµРЅРёРµ! РЈСЃС‚Р°РЅРѕРІРєР° РІРµСЂСЃРёРё " .. remote_ver .. "...", -1)
                         
                         local main_script_path = thisScript().path
                         os.remove(main_script_path)
                         os.rename(temp_path, main_script_path)
                         
-                        sampAddChatMessage("{8B0000}[ModHelper] {00FF00}Обновление успешно установлено! Перезагрузка скрипта...", -1)
+                        sampAddChatMessage("{8B0000}[ModHelper] {00FF00}РћР±РЅРѕРІР»РµРЅРёРµ СѓСЃРїРµС€РЅРѕ СѓСЃС‚Р°РЅРѕРІР»РµРЅРѕ! РџРµСЂРµР·Р°РіСЂСѓР·РєР° СЃРєСЂРёРїС‚Р°...", -1)
                         thisScript():reload()
                     else
-                        sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}У вас установлена последняя версия скрипта.", -1)
+                        sampAddChatMessage("{8B0000}[ModHelper] {FFFFFF}РЈ РІР°СЃ СѓСЃС‚Р°РЅРѕРІР»РµРЅР° РїРѕСЃР»РµРґРЅСЏСЏ РІРµСЂСЃРёСЏ СЃРєСЂРёРїС‚Р°.", -1)
                         os.remove(temp_path)
                     end
                 else
@@ -150,7 +151,7 @@ function checkUpdate()
             end
             update_checking = false
         elseif status == dlstatus.STATUS_ERRORDOWNLOADDATA then
-            sampAddChatMessage("{8B0000}[ModHelper] {FF0000}Ошибка при проверке обновлений. Проверьте интернет.", -1)
+            sampAddChatMessage("{8B0000}[ModHelper] {FF0000}РћС€РёР±РєР° РїСЂРё РїСЂРѕРІРµСЂРєРµ РѕР±РЅРѕРІР»РµРЅРёР№. РџСЂРѕРІРµСЂСЊС‚Рµ РёРЅС‚РµСЂРЅРµС‚.", -1)
             update_checking = false
         end
     end)
