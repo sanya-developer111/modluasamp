@@ -11,10 +11,10 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ================= НАСТРОЙКИ ОБНОВЛЕНИЯ =================
-local CURRENT_VERSION = "1.0" -- Текущая версия мода
+local CURRENT_VERSION = "1.1" -- Текущая версия мода
 -- Вставь сюда свои ссылки (RAW):
-local UPDATE_URL = "https://raw.githubusercontent.com/Твой_Ник/Репозиторий/main/version.txt"
-local UPDATE_SCRIPT_URL = "https://raw.githubusercontent.com/Твой_Ник/Репозиторий/main/PriceSimulator.lua"
+local UPDATE_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/version.txt"
+local UPDATE_SCRIPT_URL = "https://github.com/sanya-developer111/modluasamp/raw/refs/heads/main/mod.lua"
 -- =======================================================
 
 -- Переменные состояния
