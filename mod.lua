@@ -10,18 +10,18 @@ local sampev = require 'samp.events'
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
--- ================= РќРђРЎРўР РћР™РљР РћР‘РќРћР’Р›Р•РќРРЇ =================
+-- ================= НАСТРОЙКИ ОБНОВЛЕНИЯ =================
 local CURRENT_VERSION = "1.2"
 local UPDATE_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/version.txt"
 local UPDATE_SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 -- =======================================================
 
--- РџРµСЂРµРјРµРЅРЅС‹Рµ СЃРѕСЃС‚РѕСЏРЅРёСЏ
+-- Переменные состояния
 local show_menu = imgui.new.bool(false)
 local waiting_for_report = false
 local updateBusy = false
 
--- РћС„РѕСЂРјР»РµРЅРёРµ mimgui (РљСЂР°СЃРЅРѕ-Р§РµСЂРЅР°СЏ С‚РµРјР°)
+-- Оформление mimgui (Красно-Черная тема)
 imgui.OnInitialize(function()
     local style = imgui.GetStyle()
     local colors = style.Colors
@@ -38,27 +38,27 @@ imgui.OnInitialize(function()
     colors[imgui.Col.Text] = imgui.ImVec4(0.95, 0.95, 0.95, 1.00)
 end)
 
--- Р РµРЅРґРµСЂ РјРµРЅСЋ (F5)
+-- Рендер меню (F5)
 local newFrame = imgui.OnFrame(function() return show_menu[0] end, function(player)
     imgui.SetNextWindowSize(imgui.ImVec2(450, 200), imgui.Cond.FirstUseEver)
-    if imgui.Begin(u8"РЎРёСЃС‚РµРјР° СЃСЂРµРґРЅРёС… С†РµРЅ | РРЅРІРµРЅС‚Р°СЂСЊ", show_menu, imgui.WindowFlags.NoCollapse) then
+    if imgui.Begin(u8"Система средних цен | Инвентарь", show_menu, imgui.WindowFlags.NoCollapse) then
         
         imgui.Spacing()
-        imgui.TextColored(imgui.ImVec4(0.8, 0.8, 0.8, 1.0), u8"Р’Р°С€Рё СЂРµСЃСѓСЂСЃС‹ РёР· РёРЅРІРµРЅС‚Р°СЂСЏ:")
+        imgui.TextColored(imgui.ImVec4(0.8, 0.8, 0.8, 1.0), u8"Ваши ресурсы из инвентаря:")
         imgui.Separator()
         imgui.Spacing()
         
         if imgui.BeginChild("ItemBox", imgui.ImVec2(0, 80), true) then
-            imgui.TextUnformatted(u8"РўРѕС‡РёР»СЊРЅС‹Р№ РєР°РјРµРЅСЊ")
+            imgui.TextUnformatted(u8"Точильный камень")
             imgui.SameLine(200)
-            imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"СЃСЂРµРґРЅСЏСЏ С†РµРЅР°:")
+            imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"средняя цена:")
             imgui.SameLine(310)
             imgui.TextColored(imgui.ImVec4(1.0, 0.2, 0.2, 1.0), u8"$ 50 000")
             imgui.EndChild()
         end
         
         imgui.Spacing()
-        if imgui.Button(u8"Р—Р°РєСЂС‹С‚СЊ РјРµРЅСЋ", imgui.ImVec2(-1, 35)) then
+        if imgui.Button(u8"Закрыть меню", imgui.ImVec2(-1, 35)) then
             show_menu[0] = false
         end
         
@@ -66,27 +66,27 @@ local newFrame = imgui.OnFrame(function() return show_menu[0] end, function(play
     end
 end)
 
--- РћС‚СЃР»РµР¶РёРІР°РЅРёРµ РѕС‚РїСЂР°РІРєРё РєРѕРјР°РЅРґС‹ /rep
+-- Отслеживание отправки команды /rep
 function sampev.onSendCommand(cmd)
     if cmd == "/rep" or cmd == "/report" then
         waiting_for_report = true
     end
 end
 
--- ================= РЎРРЎРўР•РњРђ РћР‘РќРћР’Р›Р•РќРР™ =================
+-- ================= СИСТЕМА ОБНОВЛЕНИЙ =================
 function checkUpdate()
     if updateBusy then
-        sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РћР±РЅРѕРІР»РµРЅРёРµ СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ...", -1)
+        sampAddChatMessage("{800000}[Мод]{FFFFFF} Обновление уже выполняется...", -1)
         return
     end
     updateBusy = true
-    sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РџСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№...", -1)
+    sampAddChatMessage("{800000}[Мод]{FFFFFF} Проверка обновлений...", -1)
     
     local path_to_script = thisScript().path
     local tmp_version = path_to_script .. ".ver.tmp"
     
     downloadUrlToFile(UPDATE_URL, tmp_version, function(id, status)
-        -- Р§РёСЃР»РѕРІС‹Рµ РєРѕРЅСЃС‚Р°РЅС‚С‹ РІРјРµСЃС‚Рѕ dlstatus
+        -- Числовые константы вместо dlstatus
         if status == 2 then -- STATUS_ENDDOWNLOADDATA = 2
             local f = io.open(tmp_version, "r")
             if f then
@@ -95,18 +95,18 @@ function checkUpdate()
                 os.remove(tmp_version)
                 
                 if remote_version and remote_version ~= CURRENT_VERSION then
-                    sampAddChatMessage(string.format("{800000}[РњРѕРґ]{FFFFFF} РќР°Р№РґРµРЅР° РІРµСЂСЃРёСЏ %s (РІР°С€Р°: %s). РЎРєР°С‡РёРІР°СЋ...", remote_version, CURRENT_VERSION), -1)
+                    sampAddChatMessage(string.format("{800000}[Мод]{FFFFFF} Найдена версия %s (ваша: %s). Скачиваю...", remote_version, CURRENT_VERSION), -1)
                     downloadUpdate(path_to_script)
                 else
-                    sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РЈ РІР°СЃ СѓСЃС‚Р°РЅРѕРІР»РµРЅР° РїРѕСЃР»РµРґРЅСЏСЏ РІРµСЂСЃРёСЏ.", -1)
+                    sampAddChatMessage("{800000}[Мод]{FFFFFF} У вас установлена последняя версия.", -1)
                     updateBusy = false
                 end
             else
-                sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РћС€РёР±РєР° С‡С‚РµРЅРёСЏ С„Р°Р№Р»Р° РІРµСЂСЃРёРё.", -1)
+                sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка чтения файла версии.", -1)
                 updateBusy = false
             end
         elseif status == 1 then -- STATUS_ERROR = 1
-            sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РІРµСЂСЃРёСЋ. РџСЂРѕРІРµСЂСЊС‚Рµ РёРЅС‚РµСЂРЅРµС‚.", -1)
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Не удалось проверить версию. Проверьте интернет.", -1)
             updateBusy = false
         end
     end)
@@ -121,13 +121,13 @@ function downloadUpdate(script_path)
             os.rename(script_path, script_path .. ".old")
             os.rename(tmp_script, script_path)
             
-            sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РћР±РЅРѕРІР»РµРЅРёРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРѕ! РџРµСЂРµР·Р°РіСЂСѓР·РєР°...", -1)
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Обновление установлено! Перезагрузка...", -1)
             updateBusy = false
             thisScript():reload()
             
         elseif status == 1 then -- STATUS_ERROR
             os.remove(tmp_script)
-            sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} РћС€РёР±РєР° СЃРєР°С‡РёРІР°РЅРёСЏ РѕР±РЅРѕРІР»РµРЅРёСЏ.", -1)
+            sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка скачивания обновления.", -1)
             updateBusy = false
         end
     end)
@@ -138,7 +138,7 @@ function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
     
-    sampAddChatMessage("{800000}[РњРѕРґ]{FFFFFF} Р—Р°РіСЂСѓР¶РµРЅ! F5 - РњРµРЅСЋ, Ctrl+F5 - РћР±РЅРѕРІР»РµРЅРёРµ", -1)
+    sampAddChatMessage("{800000}[Мод]{FFFFFF} Загружен! F5 - Меню, Ctrl+F5 - Обновление", -1)
 
     while true do
         wait(0)
@@ -153,7 +153,7 @@ function main()
 
         if waiting_for_report and sampIsDialogActive() then
             wait(50)
-            sampSetCurrentDialogEditboxText(u8"Р’СЃРµРј РїСЂРёРІРµС‚!")
+            sampSetCurrentDialogEditboxText(u8"Всем привет!")
             wait(100)
             sampCloseCurrentDialogWithButton(1)
             waiting_for_report = false
