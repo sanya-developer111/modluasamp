@@ -6,7 +6,7 @@ require "lib.moonloader"
 local imgui = require 'mimgui'
 local encoding = require 'encoding'
 local sampev = require 'samp.events'
-local dlstatus = require('moonloader').dlstatus  -- ВОТ ЭТА СТРОКА ФИКСИТ КРАШ
+-- dlstatus - глобальная константа MoonLoader, не нужно импортировать
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
@@ -50,7 +50,7 @@ local newFrame = imgui.OnFrame(function() return show_menu[0] end, function(play
         imgui.Spacing()
         
         if imgui.BeginChild("ItemBox", imgui.ImVec2(0, 80), true) then
-            imgui.TextUnformatted(u8"[💎] Точильный камень") -- Безопасный вариант
+            imgui.TextUnformatted(u8"Точильный камень")
             imgui.SameLine(200)
             imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"средняя цена:")
             imgui.SameLine(310)
@@ -90,7 +90,7 @@ function checkUpdate()
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
             local f = io.open(tmp_version, "r")
             if f then
-                local remote_version = f:read("*a"):gsub("%s+", "") -- Убираем пробелы
+                local remote_version = f:read("*a"):gsub("%s+", "")
                 f:close()
                 os.remove(tmp_version)
                 
