@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ================= НАСТРОЙКИ ОБНОВЛЕНИЯ =================
-local CURRENT_VERSION = "1.1"
+local CURRENT_VERSION = "1.2"
 local UPDATE_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/version.txt"
 local UPDATE_SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 -- =======================================================
