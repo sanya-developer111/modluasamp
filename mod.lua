@@ -86,8 +86,8 @@ function checkUpdate()
     local tmp_version = path_to_script .. ".ver.tmp"
     
     downloadUrlToFile(UPDATE_URL, tmp_version, function(id, status)
-        -- Числовые константы вместо dlstatus. 2 = успех, 1 = ошибка
-        if status == 2 then -- STATUS_ENDDOWNLOADDATA
+        -- Числовые константы вместо dlstatus
+        if status == 2 then -- STATUS_ENDDOWNLOADDATA = 2
             local f = io.open(tmp_version, "r")
             if f then
                 local remote_version = f:read("*a"):gsub("%s+", "")
@@ -105,7 +105,7 @@ function checkUpdate()
                 sampAddChatMessage("{800000}[Мод]{FFFFFF} Ошибка чтения файла версии.", -1)
                 updateBusy = false
             end
-        elseif status == 1 then -- STATUS_ERROR
+        elseif status == 1 then -- STATUS_ERROR = 1
             sampAddChatMessage("{800000}[Мод]{FFFFFF} Не удалось проверить версию. Проверьте интернет.", -1)
             updateBusy = false
         end
