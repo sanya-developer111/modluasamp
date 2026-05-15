@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 11
+local SCRIPT_VERSION = 12
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -21,6 +21,7 @@ local renderMenu = imgui.new.bool(false)
 local waitingForReport = false
 local currentTab = 0 -- 0 = Средние цены, 1 = Настройки
 local currentTheme = 0 -- 0 = Dark Navy, 1 = Emerald, 2 = Crimson
+local quickQuitRunning = false
 
 -- ============================ [ ТЕМЫ ] ============================
 local themes = {
@@ -90,26 +91,28 @@ local themes = {
 local function applyTheme(t)
     local style = imgui.GetStyle()
     local colors = style.Colors
-    colors[imgui.Col.WindowBg]          = t.WindowBg
-    colors[imgui.Col.TitleBg]           = t.TitleBg
-    colors[imgui.Col.TitleBgActive]     = t.TitleBgActive
-    colors[imgui.Col.FrameBg]           = t.FrameBg
-    colors[imgui.Col.FrameBgHovered]    = t.ButtonHovered
-    colors[imgui.Col.Button]            = t.Button
-    colors[imgui.Col.ButtonHovered]     = t.ButtonHovered
-    colors[imgui.Col.ButtonActive]      = t.ButtonActive
-    colors[imgui.Col.Text]              = t.Text
-    colors[imgui.Col.Separator]         = t.Separator
-    colors[imgui.Col.ScrollbarBg]       = t.ChildBg
-    colors[imgui.Col.ScrollbarGrab]     = t.Button
-    colors[imgui.Col.ScrollbarGrabHovered] = t.ButtonHovered
-    colors[imgui.Col.Header]            = t.TabActive
-    colors[imgui.Col.HeaderHovered]     = t.ButtonHovered
-    colors[imgui.Col.HeaderActive]      = t.ButtonActive
+
+    colors[imgui.Col.WindowBg]              = t.WindowBg
+    colors[imgui.Col.TitleBg]               = t.TitleBg
+    colors[imgui.Col.TitleBgActive]         = t.TitleBgActive
+    colors[imgui.Col.FrameBg]               = t.FrameBg
+    colors[imgui.Col.FrameBgHovered]        = t.ButtonHovered
+    colors[imgui.Col.Button]                = t.Button
+    colors[imgui.Col.ButtonHovered]         = t.ButtonHovered
+    colors[imgui.Col.ButtonActive]          = t.ButtonActive
+    colors[imgui.Col.Text]                  = t.Text
+    colors[imgui.Col.Separator]             = t.Separator
+    colors[imgui.Col.ScrollbarBg]           = t.ChildBg
+    colors[imgui.Col.ScrollbarGrab]         = t.Button
+    colors[imgui.Col.ScrollbarGrabHovered]  = t.ButtonHovered
+    colors[imgui.Col.Header]                = t.TabActive
+    colors[imgui.Col.HeaderHovered]         = t.ButtonHovered
+    colors[imgui.Col.HeaderActive]          = t.ButtonActive
 end
 
 imgui.OnInitialize(function()
     local style = imgui.GetStyle()
+
     style.WindowRounding    = 10.0
     style.FrameRounding     = 7.0
     style.GrabRounding      = 7.0
@@ -119,6 +122,7 @@ imgui.OnInitialize(function()
     style.WindowPadding     = imgui.ImVec2(14, 14)
     style.ItemSpacing       = imgui.ImVec2(10, 8)
     style.FramePadding      = imgui.ImVec2(10, 6)
+
     applyTheme(themes[currentTheme])
 end)
 
@@ -148,6 +152,7 @@ local function renderTabBar()
         if imgui.Button(tabLabels[i + 1], imgui.ImVec2(tabW, tabH)) then
             currentTab = i
         end
+
         imgui.PopStyleColor(4)
 
         if i == 0 then
@@ -162,10 +167,10 @@ local function renderPricesTab()
     local t = themes[currentTheme]
 
     imgui.Spacing()
+
     imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
     if imgui.BeginChild("PricesChild", imgui.ImVec2(-1, 150), true) then
 
-        -- Заголовок таблицы
         imgui.PushStyleColor(imgui.Col.ChildBg, t.HeaderBg)
         if imgui.BeginChild("TableHeader", imgui.ImVec2(-1, 26), false) then
             imgui.SetCursorPosY(imgui.GetCursorPosY() + 4)
@@ -178,13 +183,13 @@ local function renderPricesTab()
 
         imgui.Spacing()
 
-        -- Строки ресурсов
         local items = {
-            {name = u8"🌾  Лён",    price = u8"3 000 ₽ / шт."},
+            {name = u8"🌾  Лён", price = u8"3 000 ₽ / шт."},
         }
 
         for i, item in ipairs(items) do
-            imgui.PushStyleColor(imgui.Col.ChildBg,
+            imgui.PushStyleColor(
+                imgui.Col.ChildBg,
                 i % 2 == 0 and t.PriceBg or imgui.ImVec4(
                     t.PriceBg.x + 0.02,
                     t.PriceBg.y + 0.03,
@@ -192,6 +197,7 @@ local function renderPricesTab()
                     1.0
                 )
             )
+
             if imgui.BeginChild("row_" .. i, imgui.ImVec2(-1, 28), false) then
                 imgui.SetCursorPosY(imgui.GetCursorPosY() + 5)
                 imgui.TextColored(t.Text, item.name)
@@ -199,6 +205,7 @@ local function renderPricesTab()
                 imgui.TextColored(t.Accent, item.price)
                 imgui.EndChild()
             end
+
             imgui.PopStyleColor()
         end
 
@@ -209,6 +216,7 @@ end
 
 local function renderSettingsTab()
     local t = themes[currentTheme]
+
     imgui.Spacing()
 
     imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
@@ -217,16 +225,20 @@ local function renderSettingsTab()
         imgui.Spacing()
         imgui.TextColored(t.Accent, u8"  🎨 Смена темы")
         imgui.Spacing()
+
         imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
         imgui.Separator()
         imgui.PopStyleColor()
+
         imgui.Spacing()
 
         local themeButtonW = (imgui.GetWindowWidth() - 30) / 3
 
         imgui.PushStyleVar(imgui.StyleVar.FrameRounding, 8.0)
+
         for i = 0, 2 do
             local th = themes[i]
+
             if i == currentTheme then
                 imgui.PushStyleColor(imgui.Col.Button,        th.TabActive)
                 imgui.PushStyleColor(imgui.Col.ButtonHovered, th.ButtonHovered)
@@ -243,15 +255,18 @@ local function renderSettingsTab()
                 currentTheme = i
                 applyTheme(themes[currentTheme])
             end
+
             imgui.PopStyleColor(4)
 
-            if i < 2 then imgui.SameLine(0, 5) end
+            if i < 2 then
+                imgui.SameLine(0, 5)
+            end
         end
+
         imgui.PopStyleVar()
 
         imgui.Spacing()
 
-        -- Подпись текущей темы
         imgui.SetCursorPosX((imgui.GetWindowWidth() - 200) / 2)
         imgui.TextColored(t.TabTextInactive, u8"Активна: " .. themes[currentTheme].name)
 
@@ -262,7 +277,9 @@ end
 
 -- ============================ [ ОКНО IMGUI ] ============================
 local newFrame = imgui.OnFrame(
-    function() return renderMenu[0] end,
+    function()
+        return renderMenu[0]
+    end,
     function(player)
         local t = themes[currentTheme]
 
@@ -277,14 +294,12 @@ local newFrame = imgui.OnFrame(
 
         if imgui.Begin(u8"  📈 Trade Analytics Studio  ", renderMenu, imgui.WindowFlags.NoCollapse) then
 
-            -- Вкладки
             renderTabBar()
 
             imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
             imgui.Separator()
             imgui.PopStyleColor()
 
-            -- Контент вкладок
             if currentTab == 0 then
                 renderPricesTab()
             elseif currentTab == 1 then
@@ -293,14 +308,15 @@ local newFrame = imgui.OnFrame(
 
             imgui.Spacing()
 
-            -- Кнопка закрыть
             imgui.PushStyleColor(imgui.Col.Button,        t.Button)
             imgui.PushStyleColor(imgui.Col.ButtonHovered, t.ButtonHovered)
             imgui.PushStyleColor(imgui.Col.ButtonActive,  t.ButtonActive)
             imgui.PushStyleColor(imgui.Col.Text,          t.Text)
+
             if imgui.Button(u8"✕  Закрыть", imgui.ImVec2(-1, 30)) then
                 renderMenu[0] = false
             end
+
             imgui.PopStyleColor(4)
 
             imgui.End()
@@ -309,6 +325,58 @@ local newFrame = imgui.OnFrame(
         imgui.PopStyleColor(5)
     end
 )
+
+-- ============================ [ БЫСТРЫЙ /Q ЧЕРЕЗ F6 / T ] ============================
+local function pressEnterInChat()
+    if type(setVirtualKeyDown) == "function" then
+        setVirtualKeyDown(vkeys.VK_RETURN, true)
+        wait(25)
+        setVirtualKeyDown(vkeys.VK_RETURN, false)
+    end
+end
+
+local function quickQuit()
+    if quickQuitRunning then return end
+    quickQuitRunning = true
+
+    lua_thread.create(function()
+        -- Ждём отпускания клавиши, чтобы штатное открытие чата F6/T не мешало.
+        while isKeyDown(vkeys.VK_F6) or isKeyDown(vkeys.VK_T) do
+            wait(0)
+        end
+
+        wait(20)
+
+        -- Если чат ещё не открыт — открываем.
+        if not sampIsChatInputActive() then
+            sampSetChatInputEnabled(true)
+            wait(60)
+        end
+
+        -- Вписываем /q.
+        sampSetChatInputText("/q")
+        wait(60)
+
+        -- Основной вариант: реально имитируем Enter.
+        pressEnterInChat()
+        wait(120)
+
+        -- Запасной вариант: если чат остался открыт, обрабатываем строку как ввод SA-MP.
+        if sampIsChatInputActive() then
+            if type(sampProcessChatInput) == "function" then
+                pcall(sampProcessChatInput, "/q")
+                wait(80)
+            end
+        end
+
+        -- Если даже после этого чат висит активным — закрываем, чтобы F5/Ctrl+F5 снова работали.
+        if sampIsChatInputActive() then
+            sampSetChatInputEnabled(false)
+        end
+
+        quickQuitRunning = false
+    end)
+end
 
 -- ============================ [ ОСНОВНОЙ КОД ] ============================
 function main()
@@ -319,39 +387,33 @@ function main()
 
     sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Скрипт аналитики загружен! Версия: " .. SCRIPT_VERSION, -1)
     sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Открыть меню: {0088FF}F5 {FFFFFF}| Обновление: {0088FF}Ctrl+F5", -1)
+    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Быстрый ввод /q: {0088FF}F6/T", -1)
 
     while true do
         wait(0)
 
-        -- F5 — открыть/закрыть меню
-        if isKeyJustPressed(vkeys.VK_F5)
-            and not isKeyDown(vkeys.VK_CONTROL)
-            and not sampIsChatInputActive()
-            and not sampIsDialogActive()
-        then
-            renderMenu[0] = not renderMenu[0]
+        -- F5 / Ctrl+F5
+        -- Если чат завис активным, сначала закрываем его, чтобы мод не "умирал".
+        if isKeyJustPressed(vkeys.VK_F5) and not sampIsDialogActive() then
+            if sampIsChatInputActive() then
+                sampSetChatInputEnabled(false)
+            end
+
+            if isKeyDown(vkeys.VK_CONTROL) then
+                sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Запрос к серверу обновлений...", -1)
+                checkUpdate()
+            else
+                renderMenu[0] = not renderMenu[0]
+            end
         end
 
-        -- Ctrl+F5 — проверить обновление
-        if isKeyDown(vkeys.VK_CONTROL) and isKeyJustPressed(vkeys.VK_F5) then
-            sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Запрос к серверу обновлений...", -1)
-            checkUpdate()
-        end
-
-        -- F6 или T — открыть чат и написать /q
+        -- F6 или T — открыть чат, вписать /q и нажать Enter.
         if (isKeyJustPressed(vkeys.VK_F6) or isKeyJustPressed(vkeys.VK_T))
             and not sampIsChatInputActive()
             and not sampIsDialogActive()
+            and not quickQuitRunning
         then
-            lua_thread.create(function()
-                sampSetChatInputEnabled(true)
-                wait(50)
-                sampSetChatInputText("/q")
-                wait(50)
-                -- Симулируем Enter
-                sampSendChat("/q")
-                sampSetChatInputEnabled(false)
-            end)
+            quickQuit()
         end
     end
 end
@@ -366,6 +428,7 @@ end
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
     if waitingForReport and (style == 1 or style == 3) then
         waitingForReport = false
+
         lua_thread.create(function()
             wait(100)
             sampSetCurrentDialogEditboxText("вы чмони, сосо")
@@ -379,18 +442,22 @@ end
 function checkUpdate()
     if update_checking then return end
     update_checking = true
+
     local temp_path = getWorkingDirectory() .. "\\temp_update.lua"
 
     downloadUrlToFile(SCRIPT_URL, temp_path, function(id, status, p1, p2)
         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
             local file = io.open(temp_path, "rb")
+
             if file then
                 local content = file:read("*a")
                 file:close()
 
                 local remote_ver = content:match("local SCRIPT_VERSION = (%d+)")
+
                 if remote_ver then
                     remote_ver = tonumber(remote_ver)
+
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Найдена новая версия (" .. remote_ver .. "). Установка...", -1)
 
@@ -398,6 +465,7 @@ function checkUpdate()
 
                         local main_script_path = thisScript().path
                         local script_file = io.open(main_script_path, "wb")
+
                         if script_file then
                             script_file:write(decoded_content)
                             script_file:close()
@@ -414,7 +482,10 @@ function checkUpdate()
                 else
                     os.remove(temp_path)
                 end
+            else
+                os.remove(temp_path)
             end
+
             update_checking = false
         elseif status == dlstatus.STATUS_ERRORDOWNLOADDATA then
             sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Ошибка соединения с сервером обновлений.", -1)
