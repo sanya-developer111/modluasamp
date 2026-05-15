@@ -1,6 +1,6 @@
 script_name("Trade Analytics Studio")
 script_author("dev_alex")
-script_version("1.3")
+script_version("1.4")
 
 require "lib.moonloader"
 local dlstatus = require("moonloader").download_status
@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 13
+local SCRIPT_VERSION = 14
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -22,6 +22,19 @@ local AUTO_CHECK_UPDATES_ON_START = false -- false = не проверять о�
 local ENABLE_AUTO_REPORT = true           -- false = отключить авто-репорт
 local ENABLE_AUTO_QUIT = true             -- false = отключить авто /q на F6/T
 local AUTO_REPORT_TEXT = "Текст авторепорта"
+-- ==================================================================================
+
+-- ============================ [ КАСТОМНЫЕ ИКОНКИ ] ============================
+-- Можно заменить на любые символы / emoji / иконки из используемого шрифта.
+local ICONS = {
+    window   = u8"📈",
+    prices   = u8"📊",
+    settings = u8"⚙",
+    resource = u8"📦",
+    price    = u8"💰",
+    theme    = u8"🎨",
+    close    = u8"✕",
+}
 -- ==================================================================================
 
 local renderMenu = imgui.new.bool(false)
@@ -115,33 +128,43 @@ local function applyTheme(t)
     colors[imgui.Col.Header]                = t.TabActive
     colors[imgui.Col.HeaderHovered]         = t.ButtonHovered
     colors[imgui.Col.HeaderActive]          = t.ButtonActive
+    colors[imgui.Col.Border]                = t.Separator
 end
 
 imgui.OnInitialize(function()
     local style = imgui.GetStyle()
 
-    style.WindowRounding    = 10.0
-    style.FrameRounding     = 7.0
-    style.GrabRounding      = 7.0
-    style.ScrollbarRounding = 7.0
+    style.WindowRounding    = 12.0
+    style.FrameRounding     = 9.0
+    style.GrabRounding      = 8.0
+    style.ScrollbarRounding = 9.0
     style.WindowTitleAlign  = imgui.ImVec2(0.5, 0.5)
     style.ButtonTextAlign   = imgui.ImVec2(0.5, 0.5)
-    style.WindowPadding     = imgui.ImVec2(14, 14)
-    style.ItemSpacing       = imgui.ImVec2(10, 8)
-    style.FramePadding      = imgui.ImVec2(10, 6)
+    style.WindowPadding     = imgui.ImVec2(18, 18)
+    style.ItemSpacing       = imgui.ImVec2(12, 10)
+    style.FramePadding      = imgui.ImVec2(12, 8)
+    style.ChildRounding     = 8.0
+    style.ScrollbarSize     = 12.0
 
     applyTheme(themes[currentTheme])
 end)
 
 -- ============================ [ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЕНДЕРА ] ============================
+local function renderSectionTitle(icon, title, color)
+    imgui.TextColored(color, icon .. u8"  " .. title)
+end
+
 local function renderTabBar()
     local t = themes[currentTheme]
-    local tabLabels = {u8"  📊 Средние цены  ", u8"  ⚙ Настройки  "}
+    local tabLabels = {
+        ICONS.prices .. u8"  Средние цены",
+        ICONS.settings .. u8"  Настройки"
+    }
     local winW = imgui.GetWindowWidth()
-    local tabW = (winW - 28) / 2
-    local tabH = 32
+    local tabW = (winW - 42) / 2
+    local tabH = 40
 
-    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 7.0)
+    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 9.0)
 
     for i = 0, 1 do
         if i == currentTab then
@@ -163,7 +186,7 @@ local function renderTabBar()
         imgui.PopStyleColor(4)
 
         if i == 0 then
-            imgui.SameLine(0, 4)
+            imgui.SameLine(0, 6)
         end
     end
 
@@ -174,16 +197,17 @@ local function renderPricesTab()
     local t = themes[currentTheme]
 
     imgui.Spacing()
+    renderSectionTitle(ICONS.prices, u8"Раздел средних цен", t.Accent)
+    imgui.Spacing()
 
     imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
-    if imgui.BeginChild("PricesChild", imgui.ImVec2(-1, 150), true) then
-
+    if imgui.BeginChild("PricesChild", imgui.ImVec2(-1, 245), true) then
         imgui.PushStyleColor(imgui.Col.ChildBg, t.HeaderBg)
-        if imgui.BeginChild("TableHeader", imgui.ImVec2(-1, 26), false) then
-            imgui.SetCursorPosY(imgui.GetCursorPosY() + 4)
-            imgui.TextColored(t.Accent, u8"  Ресурс")
-            imgui.SameLine(220)
-            imgui.TextColored(t.Accent, u8"Средняя цена")
+        if imgui.BeginChild("TableHeader", imgui.ImVec2(-1, 34), false) then
+            imgui.SetCursorPosY(imgui.GetCursorPosY() + 7)
+            imgui.TextColored(t.Accent, ICONS.resource .. u8"  Ресурс")
+            imgui.SameLine(305)
+            imgui.TextColored(t.Accent, ICONS.price .. u8"  Средняя цена")
             imgui.EndChild()
         end
         imgui.PopStyleColor()
@@ -191,24 +215,27 @@ local function renderPricesTab()
         imgui.Spacing()
 
         local items = {
-            {name = u8"🌾  Лён", price = u8"3 000 ₽ / шт."},
+            {name = u8"🌾  Лён",      price = u8"3 000 ₽ / шт."},
+            {name = u8"🪵  Доски",    price = u8"1 850 ₽ / шт."},
+            {name = u8"⛏  Руда",     price = u8"2 400 ₽ / шт."},
+            {name = u8"🧱  Камень",   price = u8"1 250 ₽ / шт."},
         }
 
         for i, item in ipairs(items) do
             imgui.PushStyleColor(
                 imgui.Col.ChildBg,
                 i % 2 == 0 and t.PriceBg or imgui.ImVec4(
-                    t.PriceBg.x + 0.02,
-                    t.PriceBg.y + 0.03,
-                    t.PriceBg.z + 0.04,
+                    math.min(t.PriceBg.x + 0.02, 1.0),
+                    math.min(t.PriceBg.y + 0.03, 1.0),
+                    math.min(t.PriceBg.z + 0.04, 1.0),
                     1.0
                 )
             )
 
-            if imgui.BeginChild("row_" .. i, imgui.ImVec2(-1, 28), false) then
-                imgui.SetCursorPosY(imgui.GetCursorPosY() + 5)
+            if imgui.BeginChild("row_" .. i, imgui.ImVec2(-1, 36), false) then
+                imgui.SetCursorPosY(imgui.GetCursorPosY() + 8)
                 imgui.TextColored(t.Text, item.name)
-                imgui.SameLine(220)
+                imgui.SameLine(305)
                 imgui.TextColored(t.Accent, item.price)
                 imgui.EndChild()
             end
@@ -225,12 +252,13 @@ local function renderSettingsTab()
     local t = themes[currentTheme]
 
     imgui.Spacing()
+    renderSectionTitle(ICONS.settings, u8"Настройки интерфейса", t.Accent)
+    imgui.Spacing()
 
     imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
-    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 190), true) then
-
+    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 245), true) then
         imgui.Spacing()
-        imgui.TextColored(t.Accent, u8"  🎨 Смена темы")
+        renderSectionTitle(ICONS.theme, u8"Смена темы", t.Accent)
         imgui.Spacing()
 
         imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
@@ -239,9 +267,9 @@ local function renderSettingsTab()
 
         imgui.Spacing()
 
-        local themeButtonW = (imgui.GetWindowWidth() - 30) / 3
+        local themeButtonW = (imgui.GetWindowWidth() - 38) / 3
 
-        imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 8.0)
+        imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 9.0)
 
         for i = 0, 2 do
             local th = themes[i]
@@ -258,7 +286,7 @@ local function renderSettingsTab()
                 imgui.PushStyleColor(imgui.Col.Text,          th.TabTextInactive)
             end
 
-            if imgui.Button(th.name, imgui.ImVec2(themeButtonW, 38)) then
+            if imgui.Button(th.name, imgui.ImVec2(themeButtonW, 46)) then
                 currentTheme = i
                 applyTheme(themes[currentTheme])
             end
@@ -266,7 +294,7 @@ local function renderSettingsTab()
             imgui.PopStyleColor(4)
 
             if i < 2 then
-                imgui.SameLine(0, 5)
+                imgui.SameLine(0, 7)
             end
         end
 
@@ -275,20 +303,15 @@ local function renderSettingsTab()
         imgui.Spacing()
         imgui.Spacing()
 
-        imgui.TextColored(t.Accent, u8"  ⚙ Переключатели функций")
-        imgui.Spacing()
         imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
         imgui.Separator()
         imgui.PopStyleColor()
-        imgui.Spacing()
-
-        imgui.TextColored(t.TabTextInactive, u8("Автопроверка обновлений при входе: ") .. (AUTO_CHECK_UPDATES_ON_START and u8"включена" or u8"выключена"))
-        imgui.TextColored(t.TabTextInactive, u8("Авторепорт: ") .. (ENABLE_AUTO_REPORT and u8"включён" or u8"выключен"))
-        imgui.TextColored(t.TabTextInactive, u8("Авто /q: ") .. (ENABLE_AUTO_QUIT and u8"включён" or u8"выключен"))
 
         imgui.Spacing()
-        imgui.SetCursorPosX((imgui.GetWindowWidth() - 220) / 2)
-        imgui.TextColored(t.TabTextInactive, u8"Активна: " .. themes[currentTheme].name)
+        imgui.TextColored(t.TabTextInactive, u8"Текущая тема интерфейса:")
+        imgui.Spacing()
+        imgui.SetCursorPosX((imgui.GetWindowWidth() - 260) / 2)
+        imgui.TextColored(t.Accent, themes[currentTheme].name)
 
         imgui.EndChild()
     end
@@ -303,8 +326,8 @@ local newFrame = imgui.OnFrame(
     function(player)
         local t = themes[currentTheme]
 
-        imgui.SetNextWindowSize(imgui.ImVec2(480, 350), imgui.Cond.FirstUseEver)
-        imgui.SetNextWindowPos(imgui.ImVec2(480, 280), imgui.Cond.FirstUseEver)
+        imgui.SetNextWindowSize(imgui.ImVec2(620, 430), imgui.Cond.FirstUseEver)
+        imgui.SetNextWindowPos(imgui.ImVec2(420, 220), imgui.Cond.FirstUseEver)
 
         imgui.PushStyleColor(imgui.Col.WindowBg,      t.WindowBg)
         imgui.PushStyleColor(imgui.Col.TitleBg,       t.TitleBg)
@@ -312,7 +335,7 @@ local newFrame = imgui.OnFrame(
         imgui.PushStyleColor(imgui.Col.Text,          t.Text)
         imgui.PushStyleColor(imgui.Col.Separator,     t.Separator)
 
-        if imgui.Begin(u8"  📈 Trade Analytics Studio  ", renderMenu, imgui.WindowFlags.NoCollapse) then
+        if imgui.Begin(ICONS.window .. u8"  Trade Analytics Studio", renderMenu, imgui.WindowFlags.NoCollapse) then
             renderTabBar()
 
             imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
@@ -332,7 +355,7 @@ local newFrame = imgui.OnFrame(
             imgui.PushStyleColor(imgui.Col.ButtonActive,  t.ButtonActive)
             imgui.PushStyleColor(imgui.Col.Text,          t.Text)
 
-            if imgui.Button(u8"✕  Закрыть", imgui.ImVec2(-1, 30)) then
+            if imgui.Button(ICONS.close .. u8"  Закрыть", imgui.ImVec2(-1, 36)) then
                 renderMenu[0] = false
             end
 
