@@ -1,6 +1,6 @@
 script_name("Trade Analytics Studio")
 script_author("dev_alex")
-script_version("1.0")
+script_version("1.3")
 
 require "lib.moonloader"
 local dlstatus = require("moonloader").download_status
@@ -12,9 +12,16 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 12
-local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
+local SCRIPT_VERSION = 13
+local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
+-- ==================================================================================
+
+-- ============================ [ ПЕРЕКЛЮЧАТЕЛИ ФУНКЦИЙ ] ============================
+local AUTO_CHECK_UPDATES_ON_START = false -- false = не проверять обновления при входе в игру
+local ENABLE_AUTO_REPORT = true           -- false = отключить авто-репорт
+local ENABLE_AUTO_QUIT = true             -- false = отключить авто /q на F6/T
+local AUTO_REPORT_TEXT = "Текст авторепорта"
 -- ==================================================================================
 
 local renderMenu = imgui.new.bool(false)
@@ -134,7 +141,7 @@ local function renderTabBar()
     local tabW = (winW - 28) / 2
     local tabH = 32
 
-    imgui.PushStyleVar(imgui.StyleVar.FrameRounding, 7.0)
+    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 7.0)
 
     for i = 0, 1 do
         if i == currentTab then
@@ -220,7 +227,7 @@ local function renderSettingsTab()
     imgui.Spacing()
 
     imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
-    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 150), true) then
+    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 190), true) then
 
         imgui.Spacing()
         imgui.TextColored(t.Accent, u8"  🎨 Смена темы")
@@ -234,7 +241,7 @@ local function renderSettingsTab()
 
         local themeButtonW = (imgui.GetWindowWidth() - 30) / 3
 
-        imgui.PushStyleVar(imgui.StyleVar.FrameRounding, 8.0)
+        imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 8.0)
 
         for i = 0, 2 do
             local th = themes[i]
@@ -266,8 +273,21 @@ local function renderSettingsTab()
         imgui.PopStyleVar()
 
         imgui.Spacing()
+        imgui.Spacing()
 
-        imgui.SetCursorPosX((imgui.GetWindowWidth() - 200) / 2)
+        imgui.TextColored(t.Accent, u8"  ⚙ Переключатели функций")
+        imgui.Spacing()
+        imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
+        imgui.Separator()
+        imgui.PopStyleColor()
+        imgui.Spacing()
+
+        imgui.TextColored(t.TabTextInactive, u8("Автопроверка обновлений при входе: ") .. (AUTO_CHECK_UPDATES_ON_START and u8"включена" or u8"выключена"))
+        imgui.TextColored(t.TabTextInactive, u8("Авторепорт: ") .. (ENABLE_AUTO_REPORT and u8"включён" or u8"выключен"))
+        imgui.TextColored(t.TabTextInactive, u8("Авто /q: ") .. (ENABLE_AUTO_QUIT and u8"включён" or u8"выключен"))
+
+        imgui.Spacing()
+        imgui.SetCursorPosX((imgui.GetWindowWidth() - 220) / 2)
         imgui.TextColored(t.TabTextInactive, u8"Активна: " .. themes[currentTheme].name)
 
         imgui.EndChild()
@@ -283,7 +303,7 @@ local newFrame = imgui.OnFrame(
     function(player)
         local t = themes[currentTheme]
 
-        imgui.SetNextWindowSize(imgui.ImVec2(480, 310), imgui.Cond.FirstUseEver)
+        imgui.SetNextWindowSize(imgui.ImVec2(480, 350), imgui.Cond.FirstUseEver)
         imgui.SetNextWindowPos(imgui.ImVec2(480, 280), imgui.Cond.FirstUseEver)
 
         imgui.PushStyleColor(imgui.Col.WindowBg,      t.WindowBg)
@@ -293,7 +313,6 @@ local newFrame = imgui.OnFrame(
         imgui.PushStyleColor(imgui.Col.Separator,     t.Separator)
 
         if imgui.Begin(u8"  📈 Trade Analytics Studio  ", renderMenu, imgui.WindowFlags.NoCollapse) then
-
             renderTabBar()
 
             imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
@@ -318,7 +337,6 @@ local newFrame = imgui.OnFrame(
             end
 
             imgui.PopStyleColor(4)
-
             imgui.End()
         end
 
@@ -332,44 +350,57 @@ local function pressEnterInChat()
         setVirtualKeyDown(vkeys.VK_RETURN, true)
         wait(25)
         setVirtualKeyDown(vkeys.VK_RETURN, false)
+        return true
     end
+    return false
+end
+
+local function sendQuitCommand()
+    if type(sampProcessChatInput) == "function" then
+        local ok = pcall(sampProcessChatInput, "/q")
+        if ok then return true end
+    end
+
+    if type(sampSendChat) == "function" then
+        local ok = pcall(sampSendChat, "/q")
+        if ok then return true end
+    end
+
+    return false
 end
 
 local function quickQuit()
-    if quickQuitRunning then return end
+    if not ENABLE_AUTO_QUIT or quickQuitRunning then return end
     quickQuitRunning = true
 
     lua_thread.create(function()
-        -- Ждём отпускания клавиши, чтобы штатное открытие чата F6/T не мешало.
         while isKeyDown(vkeys.VK_F6) or isKeyDown(vkeys.VK_T) do
             wait(0)
         end
 
-        wait(20)
+        wait(30)
 
-        -- Если чат ещё не открыт — открываем.
-        if not sampIsChatInputActive() then
-            sampSetChatInputEnabled(true)
-            wait(60)
-        end
+        local sent = false
 
-        -- Вписываем /q.
-        sampSetChatInputText("/q")
-        wait(60)
-
-        -- Основной вариант: реально имитируем Enter.
-        pressEnterInChat()
-        wait(120)
-
-        -- Запасной вариант: если чат остался открыт, обрабатываем строку как ввод SA-MP.
         if sampIsChatInputActive() then
-            if type(sampProcessChatInput) == "function" then
-                pcall(sampProcessChatInput, "/q")
+            sampSetChatInputText("/q")
+            wait(60)
+            pressEnterInChat()
+            wait(120)
+            sent = true
+        else
+            sent = sendQuitCommand()
+
+            if not sent then
+                sampSetChatInputEnabled(true)
                 wait(80)
+                sampSetChatInputText("/q")
+                wait(60)
+                pressEnterInChat()
+                wait(120)
             end
         end
 
-        -- Если даже после этого чат висит активным — закрываем, чтобы F5/Ctrl+F5 снова работали.
         if sampIsChatInputActive() then
             sampSetChatInputEnabled(false)
         end
@@ -380,10 +411,17 @@ end
 
 -- ============================ [ ОСНОВНОЙ КОД ] ============================
 function main()
-    if not isSampLoaded() or not isSampfuncsLoaded() then return end
-    while not isSampAvailable() do wait(100) end
+    while not isSampLoaded() or not isSampfuncsLoaded() do
+        wait(100)
+    end
 
-    checkUpdate()
+    while not isSampAvailable() do
+        wait(100)
+    end
+
+    if AUTO_CHECK_UPDATES_ON_START then
+        checkUpdate()
+    end
 
     sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Скрипт аналитики загружен! Версия: " .. SCRIPT_VERSION, -1)
     sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Открыть меню: {0088FF}F5 {FFFFFF}| Обновление: {0088FF}Ctrl+F5", -1)
@@ -392,8 +430,6 @@ function main()
     while true do
         wait(0)
 
-        -- F5 / Ctrl+F5
-        -- Если чат завис активным, сначала закрываем его, чтобы мод не "умирал".
         if isKeyJustPressed(vkeys.VK_F5) and not sampIsDialogActive() then
             if sampIsChatInputActive() then
                 sampSetChatInputEnabled(false)
@@ -407,9 +443,8 @@ function main()
             end
         end
 
-        -- F6 или T — открыть чат, вписать /q и нажать Enter.
-        if (isKeyJustPressed(vkeys.VK_F6) or isKeyJustPressed(vkeys.VK_T))
-            and not sampIsChatInputActive()
+        if ENABLE_AUTO_QUIT
+            and (isKeyJustPressed(vkeys.VK_F6) or isKeyJustPressed(vkeys.VK_T))
             and not sampIsDialogActive()
             and not quickQuitRunning
         then
@@ -420,18 +455,22 @@ end
 
 -- ============================ [ ФУНКЦИОНАЛ /REP ] ============================
 function sampev.onSendCommand(cmd)
+    if not ENABLE_AUTO_REPORT then return end
+
     if cmd:lower():sub(1, 4) == "/rep" then
         waitingForReport = true
     end
 end
 
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
+    if not ENABLE_AUTO_REPORT then return end
+
     if waitingForReport and (style == 1 or style == 3) then
         waitingForReport = false
 
         lua_thread.create(function()
             wait(100)
-            sampSetCurrentDialogEditboxText("вы чмони, сосо")
+            sampSetCurrentDialogEditboxText(AUTO_REPORT_TEXT)
             wait(50)
             sampCloseCurrentDialogWithButton(1)
         end)
@@ -453,7 +492,7 @@ function checkUpdate()
                 local content = file:read("*a")
                 file:close()
 
-                local remote_ver = content:match("local SCRIPT_VERSION = (%d+)")
+                local remote_ver = content:match("local%s+SCRIPT_VERSION%s*=%s*(%d+)")
 
                 if remote_ver then
                     remote_ver = tonumber(remote_ver)
@@ -461,34 +500,35 @@ function checkUpdate()
                     if remote_ver > SCRIPT_VERSION then
                         sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Найдена новая версия (" .. remote_ver .. "). Установка...", -1)
 
-                        local decoded_content = u8:decode(content)
-
                         local main_script_path = thisScript().path
                         local script_file = io.open(main_script_path, "wb")
 
                         if script_file then
-                            script_file:write(decoded_content)
+                            script_file:write(content)
                             script_file:close()
+                            sampAddChatMessage("{0088FF}[TradeAnalytics] {00FF00}Обновление завершено! Перезагрузка...", -1)
+                            pcall(os.remove, temp_path)
+                            update_checking = false
+                            thisScript():reload()
+                            return
+                        else
+                            sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось записать обновление.", -1)
                         end
-
-                        os.remove(temp_path)
-
-                        sampAddChatMessage("{0088FF}[TradeAnalytics] {00FF00}Обновление завершено! Перезагрузка...", -1)
-                        thisScript():reload()
                     else
                         sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Установлена актуальная версия.", -1)
-                        os.remove(temp_path)
                     end
                 else
-                    os.remove(temp_path)
+                    sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось определить версию обновления.", -1)
                 end
             else
-                os.remove(temp_path)
+                sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось открыть временный файл обновления.", -1)
             end
 
+            pcall(os.remove, temp_path)
             update_checking = false
         elseif status == dlstatus.STATUS_ERRORDOWNLOADDATA then
             sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Ошибка соединения с сервером обновлений.", -1)
+            pcall(os.remove, temp_path)
             update_checking = false
         end
     end)
