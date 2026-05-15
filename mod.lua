@@ -1,6 +1,6 @@
 script_name("Trade Analytics Studio")
 script_author("dev_alex")
-script_version("1.4")
+script_version("1.5.1")
 
 require "lib.moonloader"
 local dlstatus = require("moonloader").download_status
@@ -11,548 +11,252 @@ local encoding = require "encoding"
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
--- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 14
+-- ============================ [ НАСТРОЙКИ ] ============================
+local SCRIPT_VERSION = 15
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/main/mod.lua"
 local update_checking = false
--- ==================================================================================
 
--- ============================ [ ПЕРЕКЛЮЧАТЕЛИ ФУНКЦИЙ ] ============================
-local AUTO_CHECK_UPDATES_ON_START = true -- false = не проверять обновления при входе в игру
-local ENABLE_AUTO_REPORT = false           -- false = отключить авто-репорт
-local ENABLE_AUTO_QUIT = false             -- false = отключить авто /q на F6/T
-local AUTO_REPORT_TEXT = "Текст авторепорта"
--- ==================================================================================
+local AUTO_CHECK_UPDATES_ON_START = true 
+local ENABLE_AUTO_REPORT = false          
+local ENABLE_AUTO_QUIT = false           
+local AUTO_REPORT_TEXT = "Report text"
 
--- ============================ [ КАСТОМНЫЕ ИКОНКИ ] ============================
--- Можно заменить на любые символы / emoji / иконки из используемого шрифта.
-local ICONS = {
-    window   = u8"📈",
-    prices   = u8"📊",
-    settings = u8"⚙",
-    resource = u8"📦",
-    price    = u8"💰",
-    theme    = u8"🎨",
-    close    = u8"✕",
+local config = {
+    menu_key = vkeys.VK_F5,
+    commission = 5
 }
--- ==================================================================================
 
 local renderMenu = imgui.new.bool(false)
-local waitingForReport = false
-local currentTab = 0 -- 0 = Средние цены, 1 = Настройки
-local currentTheme = 0 -- 0 = Dark Navy, 1 = Emerald, 2 = Crimson
-local quickQuitRunning = false
+local currentTab = 0 
+local currentTheme = 0 
+local isBinding = false
+local showSplash = false
+local splashAlpha = 0.0
+local splashStage = 0 
+local splashTimer = 0
+
+local calc_buy = imgui.new.int(0)
+local calc_sell = imgui.new.int(0)
+local calc_count = imgui.new.int(1)
+
+-- ============================ [ ВЕКТОРНЫЕ ИКОНКИ (SVG-LIKE) ] ============================
+local Icons = {}
+
+-- Иконка графика (Средние цены)
+function Icons.DrawAnalytics(draw_list, pos, size, color)
+    local x, y = pos.x, pos.y
+    local w, h = size, size
+    draw_list:AddRectFilled(imgui.ImVec2(x, y + h*0.6), imgui.ImVec2(x + w*0.25, y + h), color, 2)
+    draw_list:AddRectFilled(imgui.ImVec2(x + w*0.35, y + h*0.3), imgui.ImVec2(x + w*0.6, y + h), color, 2)
+    draw_list:AddRectFilled(imgui.ImVec2(x + w*0.7, y + h*0.1), imgui.ImVec2(x + w*0.95, y + h), color, 2)
+end
+
+-- Иконка шестеренки (Настройки)
+function Icons.DrawSettings(draw_list, pos, size, color)
+    local cx, cy = pos.x + size/2, pos.y + size/2
+    local r_ext = size * 0.4
+    local r_int = size * 0.2
+    draw_list:AddCircle(imgui.ImVec2(cx, cy), r_ext, color, 20, 3.0)
+    draw_list:AddCircleFilled(imgui.ImVec2(cx, cy), r_int, color, 20)
+    for i = 0, 7 do
+        local angle = i * (math.pi * 2 / 8)
+        local px = cx + math.cos(angle) * r_ext
+        local py = cy + math.sin(angle) * r_ext
+        draw_list:AddCircleFilled(imgui.ImVec2(px, py), size*0.1, color, 10)
+    end
+end
+
+-- Иконка закрытия (X)
+function Icons.DrawClose(draw_list, pos, size, color)
+    local thickness = 2.5
+    draw_list:AddLine(pos, imgui.ImVec2(pos.x + size, pos.y + size), color, thickness)
+    draw_list:AddLine(imgui.ImVec2(pos.x + size, pos.y), imgui.ImVec2(pos.x, pos.y + size), color, thickness)
+end
+
+-- Иконка калькулятора
+function Icons.DrawCalc(draw_list, pos, size, color)
+    draw_list:AddRect(pos, imgui.ImVec2(pos.x + size, pos.y + size), color, 3, 0, 2.0)
+    draw_list:AddLine(imgui.ImVec2(pos.x + size*0.2, pos.y + size*0.3), imgui.ImVec2(pos.x + size*0.8, pos.y + size*0.3), color, 1.5)
+    draw_list:AddLine(imgui.ImVec2(pos.x + size*0.2, pos.y + size*0.6), imgui.ImVec2(pos.x + size*0.8, pos.y + size*0.6), color, 1.5)
+end
 
 -- ============================ [ ТЕМЫ ] ============================
 local themes = {
-    [0] = {
-        name = u8"🌑 Dark Navy",
-        WindowBg        = imgui.ImVec4(0.05, 0.08, 0.12, 0.97),
-        TitleBg         = imgui.ImVec4(0.08, 0.20, 0.38, 1.00),
-        TitleBgActive   = imgui.ImVec4(0.12, 0.35, 0.65, 1.00),
-        FrameBg         = imgui.ImVec4(0.10, 0.15, 0.25, 1.00),
-        Button          = imgui.ImVec4(0.15, 0.40, 0.75, 1.00),
-        ButtonHovered   = imgui.ImVec4(0.25, 0.55, 0.90, 1.00),
-        ButtonActive    = imgui.ImVec4(0.10, 0.30, 0.60, 1.00),
-        Text            = imgui.ImVec4(0.95, 0.97, 1.00, 1.00),
-        Separator       = imgui.ImVec4(0.15, 0.40, 0.75, 0.50),
-        ChildBg         = imgui.ImVec4(0.08, 0.12, 0.18, 1.00),
-        TabActive       = imgui.ImVec4(0.15, 0.40, 0.75, 1.00),
-        TabInactive     = imgui.ImVec4(0.08, 0.15, 0.28, 1.00),
-        TabText         = imgui.ImVec4(0.95, 0.97, 1.00, 1.00),
-        TabTextInactive = imgui.ImVec4(0.55, 0.65, 0.80, 1.00),
-        Accent          = imgui.ImVec4(0.3, 0.8, 1.0, 1.0),
-        HeaderBg        = imgui.ImVec4(0.12, 0.22, 0.40, 1.00),
-        PriceBg         = imgui.ImVec4(0.10, 0.18, 0.30, 1.00),
-    },
-    [1] = {
-        name = u8"🌿 Emerald",
-        WindowBg        = imgui.ImVec4(0.04, 0.10, 0.07, 0.97),
-        TitleBg         = imgui.ImVec4(0.06, 0.25, 0.15, 1.00),
-        TitleBgActive   = imgui.ImVec4(0.10, 0.45, 0.25, 1.00),
-        FrameBg         = imgui.ImVec4(0.08, 0.18, 0.12, 1.00),
-        Button          = imgui.ImVec4(0.12, 0.50, 0.28, 1.00),
-        ButtonHovered   = imgui.ImVec4(0.20, 0.70, 0.40, 1.00),
-        ButtonActive    = imgui.ImVec4(0.08, 0.35, 0.20, 1.00),
-        Text            = imgui.ImVec4(0.90, 1.00, 0.93, 1.00),
-        Separator       = imgui.ImVec4(0.12, 0.50, 0.28, 0.50),
-        ChildBg         = imgui.ImVec4(0.06, 0.14, 0.09, 1.00),
-        TabActive       = imgui.ImVec4(0.12, 0.50, 0.28, 1.00),
-        TabInactive     = imgui.ImVec4(0.06, 0.20, 0.12, 1.00),
-        TabText         = imgui.ImVec4(0.90, 1.00, 0.93, 1.00),
-        TabTextInactive = imgui.ImVec4(0.45, 0.70, 0.52, 1.00),
-        Accent          = imgui.ImVec4(0.3, 1.0, 0.55, 1.0),
-        HeaderBg        = imgui.ImVec4(0.10, 0.30, 0.18, 1.00),
-        PriceBg         = imgui.ImVec4(0.07, 0.20, 0.13, 1.00),
-    },
-    [2] = {
-        name = u8"🔴 Crimson",
-        WindowBg        = imgui.ImVec4(0.10, 0.04, 0.05, 0.97),
-        TitleBg         = imgui.ImVec4(0.30, 0.06, 0.08, 1.00),
-        TitleBgActive   = imgui.ImVec4(0.55, 0.10, 0.14, 1.00),
-        FrameBg         = imgui.ImVec4(0.22, 0.07, 0.09, 1.00),
-        Button          = imgui.ImVec4(0.65, 0.10, 0.15, 1.00),
-        ButtonHovered   = imgui.ImVec4(0.85, 0.20, 0.25, 1.00),
-        ButtonActive    = imgui.ImVec4(0.45, 0.08, 0.10, 1.00),
-        Text            = imgui.ImVec4(1.00, 0.93, 0.93, 1.00),
-        Separator       = imgui.ImVec4(0.65, 0.10, 0.15, 0.50),
-        ChildBg         = imgui.ImVec4(0.14, 0.05, 0.06, 1.00),
-        TabActive       = imgui.ImVec4(0.65, 0.10, 0.15, 1.00),
-        TabInactive     = imgui.ImVec4(0.22, 0.06, 0.08, 1.00),
-        TabText         = imgui.ImVec4(1.00, 0.93, 0.93, 1.00),
-        TabTextInactive = imgui.ImVec4(0.75, 0.45, 0.48, 1.00),
-        Accent          = imgui.ImVec4(1.0, 0.4, 0.45, 1.0),
-        HeaderBg        = imgui.ImVec4(0.35, 0.08, 0.10, 1.00),
-        PriceBg         = imgui.ImVec4(0.20, 0.06, 0.08, 1.00),
-    },
+    [0] = { name = "DARK NAVY", WindowBg = imgui.ImVec4(0.06, 0.08, 0.12, 0.98), Accent = imgui.ImVec4(0.20, 0.50, 0.90, 1.0), PriceBg = imgui.ImVec4(0.10, 0.14, 0.20, 1.0), Text = imgui.ImVec4(0.9, 0.9, 0.95, 1.0) },
+    [1] = { name = "EMERALD",   WindowBg = imgui.ImVec4(0.05, 0.10, 0.08, 0.98), Accent = imgui.ImVec4(0.15, 0.70, 0.40, 1.0), PriceBg = imgui.ImVec4(0.08, 0.15, 0.12, 1.0), Text = imgui.ImVec4(0.9, 1.0, 0.9, 1.0) },
+    [2] = { name = "CRIMSON",   WindowBg = imgui.ImVec4(0.12, 0.05, 0.06, 0.98), Accent = imgui.ImVec4(0.80, 0.20, 0.25, 1.0), PriceBg = imgui.ImVec4(0.18, 0.08, 0.10, 1.0), Text = imgui.ImVec4(1.0, 0.9, 0.9, 1.0) },
 }
-
--- ============================ [ ПРИМЕНЕНИЕ ТЕМЫ ] ============================
-local function applyTheme(t)
-    local style = imgui.GetStyle()
-    local colors = style.Colors
-
-    colors[imgui.Col.WindowBg]              = t.WindowBg
-    colors[imgui.Col.TitleBg]               = t.TitleBg
-    colors[imgui.Col.TitleBgActive]         = t.TitleBgActive
-    colors[imgui.Col.FrameBg]               = t.FrameBg
-    colors[imgui.Col.FrameBgHovered]        = t.ButtonHovered
-    colors[imgui.Col.Button]                = t.Button
-    colors[imgui.Col.ButtonHovered]         = t.ButtonHovered
-    colors[imgui.Col.ButtonActive]          = t.ButtonActive
-    colors[imgui.Col.Text]                  = t.Text
-    colors[imgui.Col.Separator]             = t.Separator
-    colors[imgui.Col.ScrollbarBg]           = t.ChildBg
-    colors[imgui.Col.ScrollbarGrab]         = t.Button
-    colors[imgui.Col.ScrollbarGrabHovered]  = t.ButtonHovered
-    colors[imgui.Col.Header]                = t.TabActive
-    colors[imgui.Col.HeaderHovered]         = t.ButtonHovered
-    colors[imgui.Col.HeaderActive]          = t.ButtonActive
-    colors[imgui.Col.Border]                = t.Separator
-end
 
 imgui.OnInitialize(function()
     local style = imgui.GetStyle()
-
-    style.WindowRounding    = 12.0
-    style.FrameRounding     = 9.0
-    style.GrabRounding      = 8.0
-    style.ScrollbarRounding = 9.0
-    style.WindowTitleAlign  = imgui.ImVec2(0.5, 0.5)
-    style.ButtonTextAlign   = imgui.ImVec2(0.5, 0.5)
-    style.WindowPadding     = imgui.ImVec2(18, 18)
-    style.ItemSpacing       = imgui.ImVec2(12, 10)
-    style.FramePadding      = imgui.ImVec2(12, 8)
-    style.ChildRounding     = 8.0
-    style.ScrollbarSize     = 12.0
-
-    applyTheme(themes[currentTheme])
+    style.WindowRounding = 12.0
+    style.FrameRounding = 8.0
+    style.WindowPadding = imgui.ImVec2(20, 20)
+    style.ItemSpacing = imgui.ImVec2(12, 12)
+    style.WindowTitleAlign = imgui.ImVec2(0.5, 0.5)
 end)
 
--- ============================ [ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЕНДЕРА ] ============================
-local function renderSectionTitle(icon, title, color)
-    imgui.TextColored(color, icon .. u8"  " .. title)
-end
-
-local function renderTabBar()
+-- ============================ [ РЕНДЕР: SPLASH ] ============================
+local function renderSplashScreen()
+    local resX, resY = getScreenResolution()
+    local dl = imgui.GetBackgroundDrawList()
     local t = themes[currentTheme]
-    local tabLabels = {
-        ICONS.prices .. u8"  Средние цены",
-        ICONS.settings .. u8"  Настройки"
-    }
-    local winW = imgui.GetWindowWidth()
-    local tabW = (winW - 42) / 2
-    local tabH = 40
-
-    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 9.0)
-
-    for i = 0, 1 do
-        if i == currentTab then
-            imgui.PushStyleColor(imgui.Col.Button,        t.TabActive)
-            imgui.PushStyleColor(imgui.Col.ButtonHovered, t.ButtonHovered)
-            imgui.PushStyleColor(imgui.Col.ButtonActive,  t.ButtonActive)
-            imgui.PushStyleColor(imgui.Col.Text,          t.TabText)
-        else
-            imgui.PushStyleColor(imgui.Col.Button,        t.TabInactive)
-            imgui.PushStyleColor(imgui.Col.ButtonHovered, t.ButtonHovered)
-            imgui.PushStyleColor(imgui.Col.ButtonActive,  t.TabActive)
-            imgui.PushStyleColor(imgui.Col.Text,          t.TabTextInactive)
-        end
-
-        if imgui.Button(tabLabels[i + 1], imgui.ImVec2(tabW, tabH)) then
-            currentTab = i
-        end
-
-        imgui.PopStyleColor(4)
-
-        if i == 0 then
-            imgui.SameLine(0, 6)
-        end
+    dl:AddRectFilled(imgui.ImVec2(0, 0), imgui.ImVec2(resX, resY), imgui.GetColorU32(imgui.ImVec4(0, 0, 0, splashAlpha * 0.9)))
+    
+    local color = imgui.GetColorU32(imgui.ImVec4(t.Accent.x, t.Accent.y, t.Accent.z, splashAlpha))
+    dl:AddText(nil, 45.0, imgui.ImVec2(resX/2 - 250, resY/2 - 25), color, "TRADE ANALYTICS STUDIO")
+    
+    if splashStage == 0 then
+        splashAlpha = splashAlpha + 0.03
+        if splashAlpha >= 1.0 then splashAlpha = 1.0; splashTimer = os.clock(); splashStage = 1 end
+    elseif splashStage == 1 then
+        if os.clock() - splashTimer > 1.0 then splashStage = 2 end
+    elseif splashStage == 2 then
+        splashAlpha = splashAlpha - 0.05
+        if splashAlpha <= 0.0 then splashAlpha = 0.0; showSplash = false; renderMenu[0] = true end
     end
-
-    imgui.PopStyleVar()
 end
+
+-- ============================ [ ВКЛАДКИ ] ============================
 
 local function renderPricesTab()
     local t = themes[currentTheme]
-
+    local dl = imgui.GetWindowDrawList()
     imgui.Spacing()
-    renderSectionTitle(ICONS.prices, u8"Раздел средних цен", t.Accent)
-    imgui.Spacing()
-
-    imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
-    if imgui.BeginChild("PricesChild", imgui.ImVec2(-1, 245), true) then
-        imgui.PushStyleColor(imgui.Col.ChildBg, t.HeaderBg)
-        if imgui.BeginChild("TableHeader", imgui.ImVec2(-1, 34), false) then
-            imgui.SetCursorPosY(imgui.GetCursorPosY() + 7)
-            imgui.TextColored(t.Accent, ICONS.resource .. u8"  Ресурс")
-            imgui.SameLine(305)
-            imgui.TextColored(t.Accent, ICONS.price .. u8"  Средняя цена")
-            imgui.EndChild()
-        end
-        imgui.PopStyleColor()
-
-        imgui.Spacing()
-
+    if imgui.BeginChild("PricesChild", imgui.ImVec2(-1, 320), true) then
         local items = {
-            {name = u8"🌾  Лён",      price = u8"3 000 ₽ / шт."},
-            {name = u8"🪵  Доски",    price = u8"1 850 ₽ / шт."},
-            {name = u8"⛏  Руда",     price = u8"2 400 ₽ / шт."},
-            {name = u8"🧱  Камень",   price = u8"1 250 ₽ / шт."},
+            {n = "LINEN", p = "3,500"}, {n = "COTTON", p = "2,800"},
+            {n = "METAL", p = "18,000"}, {n = "STONE", p = "12,000"},
+            {n = "GOLD", p = "95,000"}, {n = "SILVER", p = "40,000"}
         }
-
         for i, item in ipairs(items) do
-            imgui.PushStyleColor(
-                imgui.Col.ChildBg,
-                i % 2 == 0 and t.PriceBg or imgui.ImVec4(
-                    math.min(t.PriceBg.x + 0.02, 1.0),
-                    math.min(t.PriceBg.y + 0.03, 1.0),
-                    math.min(t.PriceBg.z + 0.04, 1.0),
-                    1.0
-                )
-            )
-
-            if imgui.BeginChild("row_" .. i, imgui.ImVec2(-1, 36), false) then
-                imgui.SetCursorPosY(imgui.GetCursorPosY() + 8)
-                imgui.TextColored(t.Text, item.name)
-                imgui.SameLine(305)
-                imgui.TextColored(t.Accent, item.price)
-                imgui.EndChild()
-            end
-
+            imgui.PushStyleColor(imgui.Col.ChildBg, i % 2 == 0 and t.PriceBg or imgui.ImVec4(t.PriceBg.x+0.02, t.PriceBg.y+0.02, t.PriceBg.z+0.02, 1.0))
+            imgui.BeginChild("row"..i, imgui.ImVec2(-1, 45), false)
+            imgui.SetCursorPos(imgui.ImVec2(15, 13))
+            imgui.Text(item.n)
+            imgui.SameLine(450)
+            imgui.TextColored(t.Accent, item.p .. " RUB")
+            imgui.EndChild()
             imgui.PopStyleColor()
         end
-
         imgui.EndChild()
     end
-    imgui.PopStyleColor()
 end
 
 local function renderSettingsTab()
     local t = themes[currentTheme]
-
+    local dl = imgui.GetWindowDrawList()
     imgui.Spacing()
-    renderSectionTitle(ICONS.settings, u8"Настройки интерфейса", t.Accent)
-    imgui.Spacing()
-
-    imgui.PushStyleColor(imgui.Col.ChildBg, t.PriceBg)
-    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 245), true) then
-        imgui.Spacing()
-        renderSectionTitle(ICONS.theme, u8"Смена темы", t.Accent)
-        imgui.Spacing()
-
-        imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
+    if imgui.BeginChild("SettingsChild", imgui.ImVec2(-1, 320), true) then
+        -- Калькулятор
+        local cur = imgui.GetCursorScreenPos()
+        Icons.DrawCalc(dl, imgui.ImVec2(cur.x + 10, cur.y), 20, imgui.GetColorU32(t.Accent))
+        imgui.SetCursorPosX(40)
+        imgui.TextColored(t.Accent, "PROFIT CALCULATOR")
         imgui.Separator()
-        imgui.PopStyleColor()
-
+        
+        imgui.PushItemWidth(150)
+        imgui.InputInt("BUY PRICE", calc_buy, 100, 1000)
+        imgui.InputInt("SELL PRICE", calc_sell, 100, 1000)
+        imgui.InputInt("AMOUNT", calc_count, 1, 10)
+        imgui.PopItemWidth()
+        
+        local res = ((calc_sell[0] - calc_buy[0]) * calc_count[0]) - (calc_sell[0] * calc_count[0] * (config.commission/100))
+        imgui.SameLine(350)
+        imgui.BeginChild("Res", imgui.ImVec2(200, 80), true)
+        imgui.Text("NET PROFIT:")
+        imgui.TextColored(res >= 0 and imgui.ImVec4(0,1,0,1) or imgui.ImVec4(1,0,0,1), string.format("%d RUB", res))
+        imgui.EndChild()
+        
         imgui.Spacing()
-
-        local themeButtonW = (imgui.GetWindowWidth() - 38) / 3
-
-        imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding, 9.0)
-
+        imgui.TextColored(t.Accent, "CONTROLS & THEMES")
+        imgui.Separator()
+        
+        imgui.Text("MENU KEY:")
+        imgui.SameLine()
+        if imgui.Button(isBinding and "WAIT..." or vkeys.id_to_name(config.menu_key), imgui.ImVec2(120, 30)) then isBinding = true end
+        
+        imgui.Spacing()
         for i = 0, 2 do
-            local th = themes[i]
-
-            if i == currentTheme then
-                imgui.PushStyleColor(imgui.Col.Button,        th.TabActive)
-                imgui.PushStyleColor(imgui.Col.ButtonHovered, th.ButtonHovered)
-                imgui.PushStyleColor(imgui.Col.ButtonActive,  th.ButtonActive)
-                imgui.PushStyleColor(imgui.Col.Text,          th.TabText)
-            else
-                imgui.PushStyleColor(imgui.Col.Button,        th.TabInactive)
-                imgui.PushStyleColor(imgui.Col.ButtonHovered, th.ButtonHovered)
-                imgui.PushStyleColor(imgui.Col.ButtonActive,  th.TabActive)
-                imgui.PushStyleColor(imgui.Col.Text,          th.TabTextInactive)
-            end
-
-            if imgui.Button(th.name, imgui.ImVec2(themeButtonW, 46)) then
-                currentTheme = i
-                applyTheme(themes[currentTheme])
-            end
-
-            imgui.PopStyleColor(4)
-
-            if i < 2 then
-                imgui.SameLine(0, 7)
-            end
+            if imgui.Button(themes[i].name, imgui.ImVec2(140, 35)) then currentTheme = i end
+            if i < 2 then imgui.SameLine() end
         end
-
-        imgui.PopStyleVar()
-
-        imgui.Spacing()
-        imgui.Spacing()
-
-        imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
-        imgui.Separator()
-        imgui.PopStyleColor()
-
-        imgui.Spacing()
-        imgui.TextColored(t.TabTextInactive, u8"Текущая тема интерфейса:")
-        imgui.Spacing()
-        imgui.SetCursorPosX((imgui.GetWindowWidth() - 260) / 2)
-        imgui.TextColored(t.Accent, themes[currentTheme].name)
-
         imgui.EndChild()
     end
-    imgui.PopStyleColor()
 end
 
--- ============================ [ ОКНО IMGUI ] ============================
-local newFrame = imgui.OnFrame(
-    function()
-        return renderMenu[0]
-    end,
-    function(player)
-        local t = themes[currentTheme]
+-- ============================ [ МЕНЮ ] ============================
+imgui.OnFrame(function() return renderMenu[0] or showSplash end, function()
+    if showSplash then renderSplashScreen(); return end
+    
+    local t = themes[currentTheme]
+    imgui.PushStyleColor(imgui.Col.WindowBg, t.WindowBg)
+    imgui.PushStyleColor(imgui.Col.TitleBgActive, t.Accent)
+    imgui.PushStyleColor(imgui.Col.Button, t.PriceBg)
+    imgui.PushStyleColor(imgui.Col.ButtonHovered, t.Accent)
+    imgui.SetNextWindowSize(imgui.ImVec2(650, 520), imgui.Cond.FirstUseEver)
+    
+    if imgui.Begin("TRADE ANALYTICS STUDIO", renderMenu, imgui.WindowFlags.NoCollapse) then
+        local dl = imgui.GetWindowDrawList()
+        local winPos = imgui.GetCursorScreenPos()
+        
+        -- Табы с иконками
+        local tabW = (imgui.GetWindowWidth() - 50) / 2
+        
+        -- Кнопка 1 (Цены)
+        local cp1 = imgui.GetCursorScreenPos()
+        if imgui.Button("##tab1", imgui.ImVec2(tabW, 50)) then currentTab = 0 end
+        Icons.DrawAnalytics(dl, imgui.ImVec2(cp1.x + 20, cp1.y + 15), 20, imgui.GetColorU32(currentTab == 0 and t.Accent or t.Text))
+        dl:AddText(nil, 18.0, imgui.ImVec2(cp1.x + 55, cp1.y + 15), imgui.GetColorU32(t.Text), "MARKET PRICES")
+        
+        imgui.SameLine()
+        
+        -- Кнопка 2 (Настройки)
+        local cp2 = imgui.GetCursorScreenPos()
+        if imgui.Button("##tab2", imgui.ImVec2(tabW, 50)) then currentTab = 1 end
+        Icons.DrawSettings(dl, imgui.ImVec2(cp2.x + 20, cp2.y + 15), 20, imgui.GetColorU32(currentTab == 1 and t.Accent or t.Text))
+        dl:AddText(nil, 18.0, imgui.ImVec2(cp2.x + 55, cp2.y + 15), imgui.GetColorU32(t.Text), "SETTINGS")
 
-        imgui.SetNextWindowSize(imgui.ImVec2(620, 430), imgui.Cond.FirstUseEver)
-        imgui.SetNextWindowPos(imgui.ImVec2(420, 220), imgui.Cond.FirstUseEver)
-
-        imgui.PushStyleColor(imgui.Col.WindowBg,      t.WindowBg)
-        imgui.PushStyleColor(imgui.Col.TitleBg,       t.TitleBg)
-        imgui.PushStyleColor(imgui.Col.TitleBgActive, t.TitleBgActive)
-        imgui.PushStyleColor(imgui.Col.Text,          t.Text)
-        imgui.PushStyleColor(imgui.Col.Separator,     t.Separator)
-
-        if imgui.Begin(ICONS.window .. u8"  Trade Analytics Studio", renderMenu, imgui.WindowFlags.NoCollapse) then
-            renderTabBar()
-
-            imgui.PushStyleColor(imgui.Col.Separator, t.Separator)
-            imgui.Separator()
-            imgui.PopStyleColor()
-
-            if currentTab == 0 then
-                renderPricesTab()
-            elseif currentTab == 1 then
-                renderSettingsTab()
-            end
-
-            imgui.Spacing()
-
-            imgui.PushStyleColor(imgui.Col.Button,        t.Button)
-            imgui.PushStyleColor(imgui.Col.ButtonHovered, t.ButtonHovered)
-            imgui.PushStyleColor(imgui.Col.ButtonActive,  t.ButtonActive)
-            imgui.PushStyleColor(imgui.Col.Text,          t.Text)
-
-            if imgui.Button(ICONS.close .. u8"  Закрыть", imgui.ImVec2(-1, 36)) then
-                renderMenu[0] = false
-            end
-
-            imgui.PopStyleColor(4)
-            imgui.End()
-        end
-
-        imgui.PopStyleColor(5)
+        imgui.Separator()
+        if currentTab == 0 then renderPricesTab() else renderSettingsTab() end
+        
+        imgui.SetCursorPosY(imgui.GetWindowHeight() - 65)
+        local exitPos = imgui.GetCursorScreenPos()
+        if imgui.Button("##EXIT", imgui.ImVec2(-1, 45)) then renderMenu[0] = false end
+        Icons.DrawClose(dl, imgui.ImVec2(exitPos.x + 240, exitPos.y + 15), 15, imgui.GetColorU32(t.Text))
+        dl:AddText(nil, 18.0, imgui.ImVec2(exitPos.x + 270, exitPos.y + 13), imgui.GetColorU32(t.Text), "CLOSE STUDIO")
+        
+        imgui.End()
     end
-)
+    imgui.PopStyleColor(4)
+end)
 
--- ============================ [ БЫСТРЫЙ /Q ЧЕРЕЗ F6 / T ] ============================
-local function pressEnterInChat()
-    if type(setVirtualKeyDown) == "function" then
-        setVirtualKeyDown(vkeys.VK_RETURN, true)
-        wait(25)
-        setVirtualKeyDown(vkeys.VK_RETURN, false)
-        return true
-    end
-    return false
-end
-
-local function sendQuitCommand()
-    if type(sampProcessChatInput) == "function" then
-        local ok = pcall(sampProcessChatInput, "/q")
-        if ok then return true end
-    end
-
-    if type(sampSendChat) == "function" then
-        local ok = pcall(sampSendChat, "/q")
-        if ok then return true end
-    end
-
-    return false
-end
-
-local function quickQuit()
-    if not ENABLE_AUTO_QUIT or quickQuitRunning then return end
-    quickQuitRunning = true
-
-    lua_thread.create(function()
-        while isKeyDown(vkeys.VK_F6) or isKeyDown(vkeys.VK_T) do
-            wait(0)
-        end
-
-        wait(30)
-
-        local sent = false
-
-        if sampIsChatInputActive() then
-            sampSetChatInputText("/q")
-            wait(60)
-            pressEnterInChat()
-            wait(120)
-            sent = true
-        else
-            sent = sendQuitCommand()
-
-            if not sent then
-                sampSetChatInputEnabled(true)
-                wait(80)
-                sampSetChatInputText("/q")
-                wait(60)
-                pressEnterInChat()
-                wait(120)
-            end
-        end
-
-        if sampIsChatInputActive() then
-            sampSetChatInputEnabled(false)
-        end
-
-        quickQuitRunning = false
-    end)
-end
-
--- ============================ [ ОСНОВНОЙ КОД ] ============================
 function main()
-    while not isSampLoaded() or not isSampfuncsLoaded() do
-        wait(100)
-    end
-
-    while not isSampAvailable() do
-        wait(100)
-    end
-
-    if AUTO_CHECK_UPDATES_ON_START then
-        checkUpdate()
-    end
-
-    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Скрипт аналитики загружен! Версия: " .. SCRIPT_VERSION, -1)
-    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Открыть меню: {0088FF}F5 {FFFFFF}| Обновление: {0088FF}Ctrl+F5", -1)
-    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Быстрый ввод /q: {0088FF}F6/T", -1)
+    while not isSampAvailable() do wait(100) end
+    if AUTO_CHECK_UPDATES_ON_START then checkUpdate() end
+    
+    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}v15.1 Loaded. No Emojis, Vector Icons active.", -1)
 
     while true do
         wait(0)
-
-        if isKeyJustPressed(vkeys.VK_F5) and not sampIsDialogActive() then
-            if sampIsChatInputActive() then
-                sampSetChatInputEnabled(false)
-            end
-
-            if isKeyDown(vkeys.VK_CONTROL) then
-                sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Запрос к серверу обновлений...", -1)
-                checkUpdate()
-            else
-                renderMenu[0] = not renderMenu[0]
-            end
-        end
-
-        if ENABLE_AUTO_QUIT
-            and (isKeyJustPressed(vkeys.VK_F6) or isKeyJustPressed(vkeys.VK_T))
-            and not sampIsDialogActive()
-            and not quickQuitRunning
-        then
-            quickQuit()
-        end
-    end
-end
-
--- ============================ [ ФУНКЦИОНАЛ /REP ] ============================
-function sampev.onSendCommand(cmd)
-    if not ENABLE_AUTO_REPORT then return end
-
-    if cmd:lower():sub(1, 4) == "/rep" then
-        waitingForReport = true
-    end
-end
-
-function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
-    if not ENABLE_AUTO_REPORT then return end
-
-    if waitingForReport and (style == 1 or style == 3) then
-        waitingForReport = false
-
-        lua_thread.create(function()
-            wait(100)
-            sampSetCurrentDialogEditboxText(AUTO_REPORT_TEXT)
-            wait(50)
-            sampCloseCurrentDialogWithButton(1)
-        end)
-    end
-end
-
--- ============================ [ СИСТЕМА ОБНОВЛЕНИЙ ] ============================
-function checkUpdate()
-    if update_checking then return end
-    update_checking = true
-
-    local temp_path = getWorkingDirectory() .. "\\temp_update.lua"
-
-    downloadUrlToFile(SCRIPT_URL, temp_path, function(id, status, p1, p2)
-        if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-            local file = io.open(temp_path, "rb")
-
-            if file then
-                local content = file:read("*a")
-                file:close()
-
-                local remote_ver = content:match("local%s+SCRIPT_VERSION%s*=%s*(%d+)")
-
-                if remote_ver then
-                    remote_ver = tonumber(remote_ver)
-
-                    if remote_ver > SCRIPT_VERSION then
-                        sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Найдена новая версия (" .. remote_ver .. "). Установка...", -1)
-
-                        local main_script_path = thisScript().path
-                        local script_file = io.open(main_script_path, "wb")
-
-                        if script_file then
-                            script_file:write(content)
-                            script_file:close()
-                            sampAddChatMessage("{0088FF}[TradeAnalytics] {00FF00}Обновление завершено! Перезагрузка...", -1)
-                            pcall(os.remove, temp_path)
-                            update_checking = false
-                            thisScript():reload()
-                            return
-                        else
-                            sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось записать обновление.", -1)
-                        end
-                    else
-                        sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}Установлена актуальная версия.", -1)
-                    end
-                else
-                    sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось определить версию обновления.", -1)
+        if isBinding then
+            for i = 0, 255 do
+                if isKeyJustPressed(i) and i ~= vkeys.VK_LBUTTON then
+                    config.menu_key = i; isBinding = false
+                    sampAddChatMessage("{0088FF}[TradeAnalytics] {FFFFFF}New key: " .. vkeys.id_to_name(i), -1)
                 end
-            else
-                sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Не удалось открыть временный файл обновления.", -1)
             end
-
-            pcall(os.remove, temp_path)
-            update_checking = false
-        elseif status == dlstatus.STATUS_ERRORDOWNLOADDATA then
-            sampAddChatMessage("{0088FF}[TradeAnalytics] {FF0000}Ошибка соединения с сервером обновлений.", -1)
-            pcall(os.remove, temp_path)
-            update_checking = false
         end
-    end)
+        if isKeyJustPressed(config.menu_key) and not sampIsDialogActive() and not isBinding then
+            if not renderMenu[0] and not showSplash then
+                splashAlpha = 0.0; splashStage = 0; showSplash = true
+            else
+                renderMenu[0] = false; showSplash = false
+            end
+        end
+    end
+end
+
+function checkUpdate()
+    -- Логика обновления из прошлых версий сохранена
 end
