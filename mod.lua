@@ -18,9 +18,9 @@ local update_checking = false
 -- ==================================================================================
 
 -- ============================ [ ПЕРЕКЛЮЧАТЕЛИ ФУНКЦИЙ ] ============================
-local AUTO_CHECK_UPDATES_ON_START = false -- false = не проверять обновления при входе в игру
-local ENABLE_AUTO_REPORT = true           -- false = отключить авто-репорт
-local ENABLE_AUTO_QUIT = true             -- false = отключить авто /q на F6/T
+local AUTO_CHECK_UPDATES_ON_START = true -- false = не проверять обновления при входе в игру
+local ENABLE_AUTO_REPORT = false           -- false = отключить авто-репорт
+local ENABLE_AUTO_QUIT = false             -- false = отключить авто /q на F6/T
 local AUTO_REPORT_TEXT = "Текст авторепорта"
 -- ==================================================================================
 
