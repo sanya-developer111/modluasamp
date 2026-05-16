@@ -12,7 +12,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ============================ [ НАСТРОЙКИ ОБНОВЛЕНИЙ ] ============================
-local SCRIPT_VERSION = 15 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО
+local SCRIPT_VERSION = 16 -- ПРИ ОБНОВЛЕНИИ НА ГИТХАБЕ МЕНЯЙ ЭТО ЧИСЛО
 local SCRIPT_URL = "https://raw.githubusercontent.com/sanya-developer111/modluasamp/refs/heads/main/mod.lua"
 local update_checking = false
 -- ==================================================================================
@@ -104,7 +104,7 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
         waitingForReport = false
         lua_thread.create(function()
             wait(100)
-            sampSetCurrentDialogEditboxText("помойный проект, одна выкачка денег, умрите админы")
+            sampSetCurrentDialogEditboxText("умрите админы дауны")
             wait(50)
             sampCloseCurrentDialogWithButton(1)
         end)
